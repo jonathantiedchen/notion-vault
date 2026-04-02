@@ -1,107 +1,486 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion Vault</title>
   <style>
     :root { --bg: #121212; --accent: #c4a882; --border: #333; --text: #eee; --radius: 6px; }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; margin: 0; display: flex; align-items: center; height: 100vh; overflow: hidden; }
     .row { display: flex; width: 100%; padding: 0 10px; gap: 8px; align-items: center; }
     .column { display: flex; flex-direction: column; width: 100%; padding: 10px; gap: 10px; }
-    input, textarea { background: #1e1e1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: var(--radius); font-size: 12px; outline: none; font-family: inherit; }
-    textarea { height: 60px; resize: none; }
-    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: var(--radius); cursor: pointer; font-weight: bold; font-size: 10px; text-transform: uppercase; white-space: nowrap; }
+    input, textarea, select { background: #1e1e1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: var(--radius); font-size: 12px; outline: none; font-family: inherit; box-sizing: border-box; }
+    input { width: 100%; }
+    textarea { height: 60px; resize: none; width: 100%; }
+    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: var(--radius); cursor: pointer; font-weight: bold; font-size: 10px; text-transform: uppercase; white-space: nowrap; color: #000; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #444; color: #fff; }
+    button.ghost { background: #333; color: #fff; }
     .label { color: var(--accent); font-weight: bold; font-size: 12px; white-space: nowrap; }
-    .item-row { display: flex; align-items: center; background: #000; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 4px; gap: 10px; }
-    #out-box { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 12px; font-size: 11px; text-align: center; cursor: pointer; border-radius: var(--radius); width: 100%; }
-    .scroll { max-height: 140px; overflow-y: auto; }
+    .item-row { display: flex; align-items: center; background: #000; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 4px; gap: 8px; }
+    .item-label { color: var(--accent); font-size: 10px; font-weight: bold; min-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; flex-shrink: 0; }
+    #out-box { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 12px; font-size: 11px; text-align: center; cursor: pointer; border-radius: var(--radius); width: 100%; box-sizing: border-box; }
+    .scroll { max-height: 150px; overflow-y: auto; }
+    .hint { color: #666; font-size: 10px; }
+    .pw-row { display: flex; gap: 4px; align-items: center; width: 100%; }
+    .pw-row input { flex: 1; width: auto; }
+    .strength { font-size: 9px; padding: 2px 5px; border-radius: 3px; white-space: nowrap; }
+    .strength-weak   { background: #3a1111; color: #ff7070; }
+    .strength-fair   { background: #3a2f00; color: #ffc947; }
+    .strength-strong { background: #103010; color: #60d060; }
+    .top-row { display: flex; justify-content: space-between; align-items: center; }
   </style>
 </head>
 <body>
-  <div id="app" style="width:100%">Loading...</div>
+  <div id="app">Loading...</div>
 
 <script>
-const E = new TextEncoder(), D = new TextDecoder();
+'use strict';
 
-// --- Crypto ---
-async function k(p, s) {
-  const b = await crypto.subtle.importKey('raw', E.encode(p), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2', salt:s, iterations:100000, hash:'SHA-256'}, b, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+const PBKDF2_ITERATIONS = 310000;
+const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 minutes
+
+// ── Encoding helpers (UTF-8 safe, no deprecated escape/unescape) ──────────────
+
+function strToB64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
 }
 
-// --- Generator Logic ---
+function b64ToStr(b64) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function bytesToB64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// ── Crypto ────────────────────────────────────────────────────────────────────
+
+async function deriveKey(passphrase, salt) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// ── Clipboard ─────────────────────────────────────────────────────────────────
+
+async function copyToClipboard(text, btn) {
+  const original = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied!';
+  } catch {
+    btn.textContent = 'Failed!';
+  }
+  setTimeout(() => { btn.textContent = original; }, 1200);
+}
+
+// ── Auto-lock ─────────────────────────────────────────────────────────────────
+
+let lockTimer = null;
+
+function startLockTimer() {
+  clearTimeout(lockTimer);
+  lockTimer = setTimeout(() => location.reload(), AUTO_LOCK_MS);
+}
+
+function resetLockTimer() {
+  if (lockTimer !== null) startLockTimer();
+}
+
+// ── Passphrase strength ───────────────────────────────────────────────────────
+
+function strengthInfo(passphrase) {
+  const len = passphrase.length;
+  if (len === 0) return null;
+  if (len < 8)  return { label: 'Weak',   cls: 'strength-weak' };
+  if (len < 16) return { label: 'Fair',   cls: 'strength-fair' };
+  return             { label: 'Strong', cls: 'strength-strong' };
+}
+
+// ── DOM helpers ───────────────────────────────────────────────────────────────
+
+function makeTogglePwBtn(inputEl) {
+  const btn = document.createElement('button');
+  btn.className = 'ghost';
+  btn.textContent = 'Show';
+  btn.type = 'button';
+  btn.addEventListener('click', () => {
+    inputEl.type = inputEl.type === 'password' ? 'text' : 'password';
+    btn.textContent = inputEl.type === 'password' ? 'Show' : 'Hide';
+  });
+  return btn;
+}
+
+// ── Generator ─────────────────────────────────────────────────────────────────
+
 function showGenerator() {
-  document.getElementById('app').innerHTML = `
+  const app = document.getElementById('app');
+
+  app.innerHTML = `
     <div class="column">
-      <div style="display:flex; justify-content: space-between; align-items:center">
+      <div class="top-row">
         <span class="label">CREATOR</span>
-        <select id="type" onchange="toggleType()" style="background:#000; color:#fff; border:1px solid #333; font-size:10px; padding:2px">
-            <option value="single">Single Secret</option>
-            <option value="vault">Multi-Vault</option>
+        <select id="type" style="background:#000;color:#fff;border:1px solid #333;font-size:10px;padding:2px">
+          <option value="single">Single Secret</option>
+          <option value="vault">Multi-Vault</option>
         </select>
       </div>
-      <input id="n" placeholder="Name (e.g. AWS Keys)">
-      <div id="input-area"><input id="v" placeholder="Secret"></div>
-      <input id="p" type="password" placeholder="Master Passphrase">
-      <button onclick="generate()">Generate Link</button>
+      <input id="name" placeholder="Name (e.g. AWS Keys)" autocomplete="off">
+      <div id="input-area"></div>
+      <div id="vault-hint" class="hint" style="display:none">One per line. Use "Label: Value" for named entries.</div>
+      <div class="pw-row">
+        <input id="passphrase" type="password" placeholder="Master Passphrase" autocomplete="new-password">
+        <span id="strength-badge" class="strength"></span>
+      </div>
+      <button id="generate-btn">Generate Link</button>
     </div>
   `;
+
+  const pwInput = document.getElementById('passphrase');
+  const pwRow = pwInput.parentNode;
+  pwRow.insertBefore(makeTogglePwBtn(pwInput), document.getElementById('strength-badge'));
+
+  renderInputArea('single');
+
+  document.getElementById('type').addEventListener('change', function () {
+    renderInputArea(this.value);
+  });
+
+  pwInput.addEventListener('input', function () {
+    const s = strengthInfo(this.value);
+    const badge = document.getElementById('strength-badge');
+    badge.textContent = s ? s.label : '';
+    badge.className = 'strength ' + (s ? s.cls : '');
+  });
+
+  pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') generate(); });
+  document.getElementById('name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('secret').focus();
+  });
+  document.getElementById('generate-btn').addEventListener('click', generate);
 }
 
-function toggleType() {
-  const type = document.getElementById('type').value;
-  document.getElementById('input-area').innerHTML = type === 'single' 
-    ? `<input id="v" placeholder="Secret">`
-    : `<textarea id="v" placeholder="Enter secrets (one per line)"></textarea>`;
+function renderInputArea(type) {
+  const area = document.getElementById('input-area');
+  area.innerHTML = '';
+  const hint = document.getElementById('vault-hint');
+
+  if (type === 'single') {
+    const input = document.createElement('input');
+    input.id = 'secret';
+    input.placeholder = 'Secret';
+    input.autocomplete = 'off';
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('passphrase').focus(); });
+    area.appendChild(input);
+    hint.style.display = 'none';
+  } else {
+    const ta = document.createElement('textarea');
+    ta.id = 'secret';
+    ta.placeholder = 'AWS Key: AKIA...\nDB Password: hunter2\nAPI Token: sk-...';
+    area.appendChild(ta);
+    hint.style.display = 'block';
+  }
 }
 
 async function generate() {
-  const n = document.getElementById('n').value, p = document.getElementById('p').value, type = document.getElementById('type').value;
-  let v = document.getElementById('v').value;
-  if(!n || !v || !p) return;
-  
-  const payload = type === 'vault' ? { n, items: v.split('\n').filter(x => x.trim()) } : { n, v };
-  const s = crypto.getRandomValues(new Uint8Array(16)), i = crypto.getRandomValues(new Uint8Array(12));
-  const key = await k(p, s);
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:i}, key, E.encode(JSON.stringify(payload)));
-  const out = new Uint8Array(28 + ct.byteLength);
-  out.set(s,0); out.set(i,16); out.set(new Uint8Array(ct),28);
-  
-  const finalUrl = window.location.origin + window.location.pathname + '#' + btoa(unescape(encodeURIComponent(n))) + '.' + btoa(String.fromCharCode(...out));
-  document.getElementById('app').innerHTML = `<div class="column"><div id="out-box" onclick="copy('${finalUrl}')">COPIED! Now /embed in Notion.</div></div>`;
-  navigator.clipboard.writeText(finalUrl);
-}
+  const name       = document.getElementById('name').value.trim();
+  const secret     = document.getElementById('secret').value;
+  const passphrase = document.getElementById('passphrase').value;
+  const type       = document.getElementById('type').value;
+  const btn        = document.getElementById('generate-btn');
 
-function copy(url) { navigator.clipboard.writeText(url); }
+  if (!name || !secret || !passphrase) return;
 
-// --- Unlock Logic ---
-async function unlock() {
-  const p = document.getElementById('up').value, h = location.hash.slice(1).split('.');
+  btn.disabled = true;
+  btn.textContent = 'Encrypting…';
+
   try {
-    const d = Uint8Array.from(atob(h[1]), c => c.charCodeAt(0));
-    const key = await k(p, d.slice(0,16));
-    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:d.slice(16,28)}, key, d.slice(28));
-    const data = JSON.parse(D.decode(pt));
-    
-    if (data.items) {
-      // Vault View
-      let rows = data.items.map(it => `<div class="item-row"><span style="flex:1; font-size:11px">${it}</span><button onclick="cVal('${it.replace(/'/g,"\\'")}', this)" style="padding:4px 8px">Copy</button></div>`).join('');
-      document.getElementById('app').innerHTML = `<div class="column"><div style="display:flex; justify-content:space-between"><span class="label">${data.n}</span><button onclick="location.reload()" style="background:#444; padding:2px 6px">Lock</button></div><div class="scroll">${rows}</div></div>`;
+    let payload;
+    if (type === 'vault') {
+      const items = secret.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx > 0) {
+            return { label: line.slice(0, colonIdx).trim(), value: line.slice(colonIdx + 1).trim() };
+          }
+          return { label: line, value: line };
+        });
+      if (items.length === 0) { btn.disabled = false; btn.textContent = 'Generate Link'; return; }
+      payload = { type: 'vault', name, items };
     } else {
-      // Single View
-      document.getElementById('app').innerHTML = `<div class="row"><span class="label">${data.n}:</span><input id="res" value="${data.v}" readonly><button onclick="cVal('${data.v.replace(/'/g,"\\'")}', this)">Copy</button><button onclick="location.reload()" style="background:#444">Lock</button></div>`;
+      payload = { type: 'single', name, value: secret };
     }
-  } catch(e) { alert("Wrong Passphrase"); }
+
+    const salt       = crypto.getRandomValues(new Uint8Array(16));
+    const iv         = crypto.getRandomValues(new Uint8Array(12));
+    const key        = await deriveKey(passphrase, salt);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(payload))
+    );
+
+    const blob = new Uint8Array(28 + ciphertext.byteLength);
+    blob.set(salt, 0);
+    blob.set(iv, 16);
+    blob.set(new Uint8Array(ciphertext), 28);
+
+    const base = (window.location.origin && window.location.origin !== 'null')
+      ? window.location.origin + window.location.pathname
+      : window.location.href.split('#')[0];
+    const finalUrl = base + '#' + strToB64(name) + '.' + bytesToB64(blob);
+
+    showCopyBox(finalUrl);
+
+  } catch (err) {
+    alert('Encryption failed: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Generate Link';
+  }
 }
 
-function cVal(t, b) { navigator.clipboard.writeText(t); b.innerText = 'OK'; setTimeout(()=>b.innerText='Copy',1000); }
+function showCopyBox(url) {
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class="column"><div id="out-box">Click to copy encrypted link</div><p class="hint" style="text-align:center;margin:0">Paste the link into a Notion /embed block.</p></div>`;
 
-// --- Init ---
-if(location.hash && location.hash.includes('.')) {
-  const name = decodeURIComponent(escape(atob(location.hash.slice(1).split('.')[0])));
-  document.getElementById('app').innerHTML = `<div class="row"><span class="label">${name}:</span><input type="password" id="up" placeholder="Passphrase"><button onclick="unlock()">Unlock</button></div>`;
-} else {
-  showGenerator();
+  const box = document.getElementById('out-box');
+  const tryAutoClip = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      box.textContent = 'Copied! Now /embed in Notion.';
+    } catch {
+      box.textContent = 'Click to copy encrypted link';
+    }
+  };
+
+  box.addEventListener('click', async () => {
+    await copyToClipboard(url, box);
+  });
+
+  tryAutoClip();
 }
+
+// ── Unlock ────────────────────────────────────────────────────────────────────
+
+async function unlock() {
+  const passphraseInput = document.getElementById('unlock-passphrase');
+  const btn             = document.getElementById('unlock-btn');
+  const passphrase      = passphraseInput.value;
+  if (!passphrase) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Decrypting…';
+
+  try {
+    const parts = location.hash.slice(1).split('.');
+    if (parts.length < 2) throw new TypeError('Invalid URL format');
+
+    const blob          = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0));
+    const salt          = blob.slice(0, 16);
+    const iv            = blob.slice(16, 28);
+    const encryptedData = blob.slice(28);
+
+    const key             = await deriveKey(passphrase, salt);
+    const decryptedBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encryptedData);
+    const data            = JSON.parse(new TextDecoder().decode(decryptedBuffer));
+
+    startLockTimer();
+    document.addEventListener('keydown', resetLockTimer);
+    document.addEventListener('click', resetLockTimer);
+    document.addEventListener('mousemove', resetLockTimer);
+
+    renderUnlockedView(data);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Unlock';
+    if (err.name === 'OperationError') {
+      const input = document.getElementById('unlock-passphrase');
+      if (input) { input.value = ''; input.focus(); }
+      alert('Wrong passphrase or corrupted data.');
+    } else if (err instanceof TypeError) {
+      alert('Invalid vault URL.');
+    } else {
+      alert('Decryption error: ' + err.message);
+    }
+  }
+}
+
+function renderUnlockedView(data) {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  const isVault = data.type === 'vault' || (data.items !== undefined);
+  const vaultName = data.name || data.n || '';
+
+  if (isVault) {
+    const rawItems = data.items || [];
+    const items = rawItems.map(item =>
+      typeof item === 'object' ? item : { label: item, value: item }
+    );
+
+    const column = document.createElement('div');
+    column.className = 'column';
+
+    const header = document.createElement('div');
+    header.className = 'top-row';
+
+    const title = document.createElement('span');
+    title.className = 'label';
+    title.textContent = vaultName;
+
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'secondary';
+    lockBtn.textContent = 'Lock';
+    lockBtn.style.cssText = 'padding:2px 8px';
+    lockBtn.addEventListener('click', () => location.reload());
+
+    header.appendChild(title);
+    header.appendChild(lockBtn);
+    column.appendChild(header);
+
+    const scroll = document.createElement('div');
+    scroll.className = 'scroll';
+
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'item-label';
+      labelEl.title = item.label;
+      labelEl.textContent = item.label;
+
+      const valueInput = document.createElement('input');
+      valueInput.type = 'password';
+      valueInput.value = item.value;
+      valueInput.readOnly = true;
+      valueInput.style.flex = '1';
+      valueInput.style.width = 'auto';
+
+      const showBtn = makeTogglePwBtn(valueInput);
+      showBtn.style.cssText = 'padding:4px 8px; font-size:9px';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = 'Copy';
+      copyBtn.style.cssText = 'padding:4px 8px';
+      const val = item.value;
+      copyBtn.addEventListener('click', () => copyToClipboard(val, copyBtn));
+
+      row.appendChild(labelEl);
+      row.appendChild(valueInput);
+      row.appendChild(showBtn);
+      row.appendChild(copyBtn);
+      scroll.appendChild(row);
+    }
+
+    column.appendChild(scroll);
+    app.appendChild(column);
+
+  } else {
+    const secretName  = data.name  || data.n || '';
+    const secretValue = data.value || data.v || '';
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = secretName + ':';
+
+    const valueInput = document.createElement('input');
+    valueInput.type = 'password';
+    valueInput.value = secretValue;
+    valueInput.readOnly = true;
+    valueInput.style.flex = '1';
+    valueInput.style.width = 'auto';
+
+    const showBtn = makeTogglePwBtn(valueInput);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', () => copyToClipboard(secretValue, copyBtn));
+
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'secondary';
+    lockBtn.textContent = 'Lock';
+    lockBtn.addEventListener('click', () => location.reload());
+
+    row.appendChild(label);
+    row.appendChild(valueInput);
+    row.appendChild(showBtn);
+    row.appendChild(copyBtn);
+    row.appendChild(lockBtn);
+    app.appendChild(row);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+function init() {
+  if (location.hash && location.hash.includes('.')) {
+    let vaultName = '';
+    try {
+      vaultName = b64ToStr(location.hash.slice(1).split('.')[0]);
+    } catch {
+      showGenerator();
+      return;
+    }
+
+    const app = document.getElementById('app');
+    app.innerHTML = '';
+
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = vaultName + ':';
+
+    const pwInput = document.createElement('input');
+    pwInput.type = 'password';
+    pwInput.id = 'unlock-passphrase';
+    pwInput.placeholder = 'Passphrase';
+    pwInput.style.flex = '1';
+    pwInput.style.width = 'auto';
+    pwInput.autocomplete = 'current-password';
+    pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+
+    const unlockBtn = document.createElement('button');
+    unlockBtn.id = 'unlock-btn';
+    unlockBtn.textContent = 'Unlock';
+    unlockBtn.addEventListener('click', unlock);
+
+    row.appendChild(label);
+    row.appendChild(pwInput);
+    row.insertBefore(makeTogglePwBtn(pwInput), unlockBtn);
+    row.appendChild(unlockBtn);
+
+    app.appendChild(row);
+    pwInput.focus();
+
+  } else {
+    showGenerator();
+  }
+}
+
+init();
 </script>
 </body>
 </html>
