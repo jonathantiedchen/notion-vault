@@ -52,33 +52,43 @@
 <div class="vault-row">
   
   <div id="view-start" class="view">
-    <span style="color:var(--muted)">Vault Empty</span>
-    <div style="flex-grow:1"></div>
     <button class="btn btn-primary" onclick="showView('view-create')">+ Setup Secret</button>
+    <div class="divider"></div>
+    <span style="color:var(--muted)">Empty Vault</span>
   </div>
 
   <div id="view-create" class="view">
-    <input type="text" id="s-label" placeholder="Label" style="width:20%">
-    <div class="divider"></div>
-    <input type="text" id="s-secret" placeholder="Secret/Token" style="width:40%">
-    <div class="divider"></div>
-    <input type="password" id="s-pass" placeholder="Passphrase">
     <button class="btn btn-primary" onclick="generateAndSwap()">Save</button>
     <button class="btn" onclick="showView('view-start')">✕</button>
+    <div class="divider"></div>
+    <input type="text" id="s-label" placeholder="Label" style="width:20%">
+    <input type="text" id="s-secret" placeholder="Secret" style="width:30%">
+    <input type="password" id="s-pass" placeholder="Passphrase">
   </div>
 
   <div id="view-replace" class="view">
-    <span style="color:var(--success); font-size:11px">Encrypted!</span>
-    <input type="text" id="result-url" readonly style="color:var(--muted); font-size:10px">
     <button class="btn btn-primary" id="copy-replace-btn" onclick="copyAndFinish()">Copy & Replace Embed</button>
+    <div class="divider"></div>
+    <span style="color:var(--success); font-size:11px">Encrypted!</span>
+    <input type="text" id="result-url" readonly style="color:var(--muted); font-size:10px; flex-grow:1">
   </div>
 
   <div id="view-locked" class="view">
-    <span class="label-tag" id="disp-label-locked"></span>
-    <div class="divider"></div>
-    <input type="password" id="unlock-pass" placeholder="Enter passphrase..." onkeydown="if(event.key==='Enter') unlock()">
     <button class="btn btn-primary" onclick="unlock()">Unlock</button>
+    <div class="divider"></div>
+    <span class="label-tag" id="disp-label-locked"></span>
+    <input type="password" id="unlock-pass" placeholder="Passphrase..." onkeydown="if(event.key==='Enter') unlock()">
   </div>
+
+  <div id="view-unlocked" class="view">
+    <button class="btn" id="copy-btn" onclick="copySecret()">Copy</button>
+    <button class="btn" onclick="lock()">Lock</button>
+    <div class="divider"></div>
+    <span class="label-tag" id="disp-label-unlocked"></span>
+    <div id="disp-secret" style="flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+  </div>
+
+</div>
 
   <div id="view-unlocked" class="view">
     <span class="label-tag" id="disp-label-unlocked"></span>
