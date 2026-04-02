@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    :root { --bg: #121212; --accent: #c4a882; --border: #333; --text: #eee; }
+    body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; align-items: center; height: 100vh; overflow: hidden; }
+    .row { display: flex; width: 100%; padding: 0 10px; gap: 8px; align-items: center; }
+    input { background: #1e1e1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 5px; font-size: 12px; flex: 1; outline: none; }
+    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+    .label { color: var(--accent); font-weight: bold; font-size: 12px; white-space: nowrap; }
+    #out-box { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 8px; font-size: 11px; flex: 1; text-align: center; cursor: pointer; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div class="row" id="main">Loading...</div>
+
+<script>
+const E = new TextEncoder(), D = new TextDecoder();
+
+// --- Encryption Logic ---
+async function k(p, s) {
+  const b = await crypto.subtle.importKey('raw', E.encode(p), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt:s, iterations:100000, hash:'SHA-256'}, b, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+
+// --- View: Generator (Used to create the link) ---
+function showGenerator() {
+  document.getElementById('main').innerHTML = `
+    <input id="n" placeholder="Name">
+    <input id="v" placeholder="Secret">
+    <input id="p" type="password" placeholder="Passphrase">
+    <button onclick="generate()">Generate</button>
+  `;
+}
+
+async function generate() {
+  const n = document.getElementById('n').value, v = document.getElementById('v').value, p = document.getElementById('p').value;
+  if(!n || !v || !p) return;
+  const s = crypto.getRandomValues(new Uint8Array(16)), i = crypto.getRandomValues(new Uint8Array(12));
+  const key = await k(p, s);
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:i}, key, E.encode(v));
+  const out = new Uint8Array(28 + ct.byteLength);
+  out.set(s,0); out.set(i,16); out.set(new Uint8Array(ct),28);
+  const finalUrl = window.location.origin + window.location.pathname + '#' + btoa(unescape(encodeURIComponent(n))) + '.' + btoa(String.fromCharCode(...out));
+  
+  document.getElementById('main').innerHTML = `<div id="out-box" onclick="copy('${finalUrl}')">Link Ready! Click to Copy, then /embed in Notion.</div>`;
+}
+
+function copy(url) {
+  navigator.clipboard.writeText(url);
+  document.getElementById('out-box').innerText = "COPIED! Now paste in Notion.";
+  document.getElementById('out-box').style.background = "#1a3a1a";
+}
+
+// --- View: Vault (Used inside Notion) ---
+async function unlock() {
+  const p = document.getElementById('up').value, h = location.hash.slice(1).split('.');
+  try {
+    const d = Uint8Array.from(atob(h[1]), c => c.charCodeAt(0));
+    const key = await k(p, d.slice(0,16));
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:d.slice(16,28)}, key, d.slice(28));
+    document.getElementById('main').innerHTML = `<span class="label">${decodeURIComponent(escape(atob(h[0])))}:</span><input value="${D.decode(pt)}" readonly id="res"><button onclick="copyRes()">Copy</button>`;
+  } catch(e) { alert("Wrong Passphrase"); }
+}
+
+function copyRes() { const r = document.getElementById('res'); r.select(); document.execCommand('copy'); }
+
+// --- Initialization ---
+if(location.hash && location.hash.includes('.')) {
+  const name = decodeURIComponent(escape(atob(location.hash.slice(1).split('.')[0])));
+  document.getElementById('main').innerHTML = `<span class="label">${name}:</span><input type="password" id="up" placeholder="Passphrase"><button onclick="unlock()">Unlock</button>`;
+} else {
+  showGenerator();
+}
+</script>
+</body>
+</html>
