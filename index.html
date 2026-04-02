@@ -3,114 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notion Vault - In-Place</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <title>Notion Vault - Multi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&family=Anybody:wght@500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0c0c0d; --surface: #141415; --border: #252528; --text: #e4e4e0;
-      --muted: #5a5a62; --accent: #c4a882; --success: #52b788; --radius: 6px;
+      --muted: #5a5a62; --accent: #c4a882; --success: #52b788; --radius: 8px;
       --mono: 'Geist Mono', monospace;
     }
-    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; overflow: hidden; }
-
-    /* Layout Container */
-    .vault-row {
-      display: flex; align-items: center; width: 100%; height: 42px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 0 10px; gap: 10px;
+    body { 
+      background: var(--bg); color: var(--text); font-family: var(--mono); 
+      font-size: 13px; height: 100vh; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; padding: 10px;
     }
 
-    /* Views */
-    .view { display: none; align-items: center; width: 100%; gap: 10px; }
+    /* Main Card */
+    .vault-card {
+      width: 100%; max-width: 500px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      display: flex; flex-direction: column; min-height: 90px;
+    }
+
+    .view { display: none; flex-direction: column; width: 100%; padding: 12px; gap: 8px; }
     .active { display: flex; }
 
-    /* Inputs */
-    input {
-      background: transparent; border: none; color: var(--text);
-      font-family: var(--mono); font-size: 12px; outline: none; width: 100%;
+    /* Inputs & Buttons */
+    input, textarea {
+      background: #000; border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 12px; outline: none; padding: 6px 10px; border-radius: 4px;
     }
-    input::placeholder { color: var(--muted); }
-
-    /* Buttons */
+    textarea { resize: none; height: 60px; }
     .btn {
       background: none; border: 1px solid var(--border); border-radius: 4px;
-      color: var(--muted); font-size: 10px; padding: 4px 8px;
-      cursor: pointer; text-transform: uppercase; white-space: nowrap;
+      color: var(--muted); font-size: 10px; padding: 5px 10px;
+      cursor: pointer; text-transform: uppercase; white-space: nowrap; transition: 0.2s;
     }
     .btn:hover { border-color: var(--accent); color: var(--text); }
     .btn-primary { background: var(--accent); color: #000; border: none; font-weight: 600; }
 
-    .label-tag { color: var(--accent); font-weight: 500; min-width: fit-content; }
-    .divider { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
+    /* Header & Rows */
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .title { font-family: 'Anybody'; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); }
+    
+    .secret-row {
+      display: flex; align-items: center; gap: 8px; background: #000; 
+      padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .secret-text { flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
     .shake { animation: shake 0.3s ease; }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
   </style>
 </head>
 <body>
 
-<div class="vault-row">
+<div class="vault-card" id="main-card">
   
   <div id="view-start" class="view">
-    <button class="btn btn-primary" onclick="showView('view-create')">+ Setup Secret</button>
-    <div class="divider"></div>
-    <span style="color:var(--muted)">Empty Vault</span>
+    <div class="header"><span class="title">New Vault</span></div>
+    <button class="btn btn-primary" onclick="showView('view-create')">+ Setup Multi-Secret</button>
   </div>
 
-  <div id="view-create" class="view">
-    <button class="btn btn-primary" onclick="generateAndSwap()">Save</button>
-    <button class="btn" onclick="showView('view-start')">✕</button>
-    <div class="divider"></div>
-    <input type="text" id="s-label" placeholder="Label" style="width:20%">
-    <input type="text" id="s-secret" placeholder="Secret" style="width:30%">
-    <input type="password" id="s-pass" placeholder="Passphrase">
+  <div id="view-create" class="view" style="gap:6px;">
+    <input type="text" id="s-label" placeholder="Vault Label (e.g. Social Media)">
+    <textarea id="s-secret" placeholder="Enter secrets (one per line)&#10;Password 1&#10;Password 2"></textarea>
+    <input type="password" id="s-pass" placeholder="Set Unlock Passphrase">
+    <div style="display:flex; gap:6px;">
+        <button class="btn btn-primary" style="flex:1" onclick="generateAndSwap()">Save Vault</button>
+        <button class="btn" onclick="showView('view-start')">✕</button>
+    </div>
   </div>
 
   <div id="view-replace" class="view">
+    <div class="header"><span class="title" style="color:var(--success)">Ready!</span></div>
+    <p style="font-size:10px; color:var(--muted); margin-bottom:4px;">Click the button below then paste (Ctrl+V) over this block.</p>
     <button class="btn btn-primary" id="copy-replace-btn" onclick="copyAndFinish()">Copy & Replace Embed</button>
-    <div class="divider"></div>
-    <span style="color:var(--success); font-size:11px">Encrypted!</span>
-    <input type="text" id="result-url" readonly style="color:var(--muted); font-size:10px; flex-grow:1">
   </div>
 
   <div id="view-locked" class="view">
-    <button class="btn btn-primary" onclick="unlock()">Unlock</button>
-    <div class="divider"></div>
-    <span class="label-tag" id="disp-label-locked"></span>
-    <input type="password" id="unlock-pass" placeholder="Passphrase..." onkeydown="if(event.key==='Enter') unlock()">
+    <div class="header">
+        <span class="title" id="disp-label-locked">Vault</span>
+        <span style="font-size:10px; color:var(--muted)">LOCKED</span>
+    </div>
+    <div style="display:flex; gap:6px;">
+        <input type="password" id="unlock-pass" placeholder="Passphrase..." style="flex:1" onkeydown="if(event.key==='Enter') unlock()">
+        <button class="btn btn-primary" onclick="unlock()">Unlock</button>
+    </div>
   </div>
 
-  <div id="view-unlocked" class="view">
-    <button class="btn" id="copy-btn" onclick="copySecret()">Copy</button>
-    <button class="btn" onclick="lock()">Lock</button>
-    <div class="divider"></div>
-    <span class="label-tag" id="disp-label-unlocked"></span>
-    <div id="disp-secret" style="flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-  </div>
-
-</div>
-
-  <div id="view-unlocked" class="view">
-    <span class="label-tag" id="disp-label-unlocked"></span>
-    <div class="divider"></div>
-    <div id="disp-secret" style="flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
-    <button class="btn" id="copy-btn" onclick="copySecret()">Copy</button>
-    <button class="btn" onclick="lock()">Lock</button>
+  <div id="view-unlocked" class="view" style="max-height: 200px; overflow-y: auto;">
+    <div class="header">
+        <span class="title" id="disp-label-unlocked">Vault</span>
+        <button class="btn" onclick="lock()" style="padding:2px 6px;">Lock</button>
+    </div>
+    <div id="secrets-container"></div>
   </div>
 
 </div>
 
 <script>
-const ENC = new TextEncoder();
-const DEC = new TextDecoder();
+const ENC = new TextEncoder(), DEC = new TextDecoder();
 
-// --- Crypto Helpers ---
+// Crypto helpers (unchanged for compatibility)
 function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function b64ToBuf(b64) { 
-  b64 = b64.replace(/-/g,'+').replace(/_/g,'/');
-  while (b64.length % 4) b64 += '=';
-  return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-}
+function b64ToBuf(b64) { b64 = b64.replace(/-/g,'+').replace(/_/g,'/'); while (b64.length % 4) b64 += '='; return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); }
 async function deriveKey(pass, salt) {
   const base = await crypto.subtle.importKey('raw', ENC.encode(pass), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
@@ -130,30 +128,29 @@ async function decrypt(b64, pass) {
   return DEC.decode(pt);
 }
 
-// --- App Logic ---
-let currentSecret = '';
-
 function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
 async function generateAndSwap() {
-  const label = document.getElementById('s-label').value, secret = document.getElementById('s-secret').value, pass = document.getElementById('s-pass').value;
-  if(!label || !secret || !pass) return;
-  const encrypted = await encrypt(JSON.stringify({label, secret}), pass);
+  const label = document.getElementById('s-label').value;
+  const secrets = document.getElementById('s-secret').value.split('\n').filter(s => s.trim() !== '');
+  const pass = document.getElementById('s-pass').value;
+  if(!label || secrets.length === 0 || !pass) return;
+
+  const encrypted = await encrypt(JSON.stringify({label, secrets}), pass);
   const labelB64 = btoa(unescape(encodeURIComponent(label))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const finalUrl = `${window.location.origin}${window.location.pathname}#v1.${labelB64}.${encrypted}`;
+  const finalUrl = `${window.location.origin}${window.location.pathname}#v2.${labelB64}.${encrypted}`;
   
-  document.getElementById('result-url').value = finalUrl;
+  window.tempUrl = finalUrl;
   showView('view-replace');
 }
 
 function copyAndFinish() {
-  navigator.clipboard.writeText(document.getElementById('result-url').value);
+  navigator.clipboard.writeText(window.tempUrl);
   const btn = document.getElementById('copy-replace-btn');
-  btn.textContent = "Copied! Now Paste over this block.";
-  btn.style.background = "var(--success)";
+  btn.textContent = "Copied! Paste now."; btn.style.background = "var(--success)";
 }
 
 async function unlock() {
@@ -161,36 +158,47 @@ async function unlock() {
   try {
     const plain = await decrypt(parts[2], pass);
     const data = JSON.parse(plain);
-    currentSecret = data.secret;
-    document.getElementById('disp-secret').textContent = data.secret;
+    
+    const container = document.getElementById('secrets-container');
+    container.innerHTML = '';
+    
+    // Support both old single secret and new multi-secret formats
+    const list = Array.isArray(data.secrets) ? data.secrets : [data.secret];
+    
+    list.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'secret-row';
+        row.innerHTML = `<span class="secret-text">${item}</span><button class="btn" onclick="copyText('${item.replace(/'/g, "\\'")}', this)">Copy</button>`;
+        container.appendChild(row);
+    });
+
+    document.getElementById('disp-label-unlocked').textContent = data.label;
     showView('view-unlocked');
   } catch(e) {
-    document.querySelector('.vault-row').classList.add('shake');
-    setTimeout(() => document.querySelector('.vault-row').classList.remove('shake'), 300);
+    document.getElementById('main-card').classList.add('shake');
+    setTimeout(() => document.getElementById('main-card').classList.remove('shake'), 300);
   }
 }
 
-function lock() {
-  currentSecret = ''; document.getElementById('unlock-pass').value = '';
-  showView('view-locked');
+function copyText(text, btn) {
+    navigator.clipboard.writeText(text);
+    const oldText = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(() => btn.textContent = oldText, 1000);
 }
 
-function copySecret() {
-  navigator.clipboard.writeText(currentSecret);
-  const btn = document.getElementById('copy-btn');
-  btn.textContent = 'DONE'; setTimeout(() => btn.textContent = 'COPY', 1500);
+function lock() {
+  document.getElementById('unlock-pass').value = '';
+  showView('view-locked');
 }
 
 function init() {
   const hash = location.hash.slice(1);
-  if (hash.startsWith('v1.')) {
+  if (hash.startsWith('v1.') || hash.startsWith('v2.')) {
     const parts = hash.split('.');
-    try {
-      const label = decodeURIComponent(escape(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'))));
-      document.getElementById('disp-label-locked').textContent = label;
-      document.getElementById('disp-label-unlocked').textContent = label;
-      showView('view-locked');
-    } catch(e) { showView('view-start'); }
+    const label = decodeURIComponent(escape(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'))));
+    document.getElementById('disp-label-locked').textContent = label;
+    showView('view-locked');
   } else {
     showView('view-start');
   }
