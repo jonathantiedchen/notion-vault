@@ -38,22 +38,6 @@ We use industry-standard "Military Grade" primitives provided by the native **We
 * **Zero Network Requests:** All crypto runs via the browser's native API. No libraries, no external dependencies, no trackers.
 
 
-
----
-
-## 📝 Usage & Notion Setup
-
-### 1. Host it on GitHub Pages
-1.  Go to your repo **Settings** → **Pages**.
-2.  Set **Source** to `Deploy from a branch`.
-3.  Select the `main` branch and the `/ (root)` folder. Click **Save**.
-4.  Your vault is now live at `https://<your-username>.github.io/notion-vault/`.
-
-### 2. Embed in Notion
-1.  In any Notion page, type `/embed`.
-2.  Paste your GitHub Pages URL (or the specific encrypted link generated).
-3.  Resize the block to your liking.
-
 ---
 
 ## 🛠️ Technical Details
