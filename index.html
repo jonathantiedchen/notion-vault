@@ -3,520 +3,189 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notion Vault</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&family=Anybody:wght@400;500&display=swap" rel="stylesheet" />
+  <title>Notion Vault - In-Place</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg:        #0c0c0d;
-      --surface:   #141415;
-      --surface2:  #1c1c1e;
-      --border:    #252528;
-      --border-hi: #38383d;
-      --text:      #e4e4e0;
-      --muted:     #5a5a62;
-      --muted-hi:  #85858f;
-      --accent:    #c4a882;
-      --accent-hi: #ddc9a8;
-      --success:   #52b788;
-      --danger:    #e05a5a;
-      --radius:    8px;
-      --radius-lg: 12px;
-      --mono:      'Geist Mono', monospace;
-      --display:   'Anybody', sans-serif;
+      --bg: #0c0c0d; --surface: #141415; --border: #252528; --text: #e4e4e0;
+      --muted: #5a5a62; --accent: #c4a882; --success: #52b788; --radius: 6px;
+      --mono: 'Geist Mono', monospace;
     }
+    body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; overflow: hidden; }
 
-    html, body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 13px;
-      line-height: 1.5;
-      min-height: 100vh;
-    }
-
-    /* ─────────────────────────────
-       SETUP PAGE  (no hash)
-    ───────────────────────────── */
-    #setup {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px 16px 64px;
-    }
-    #setup.active { display: flex; }
-
-    .setup-inner {
-      width: 100%; max-width: 440px;
-      display: flex; flex-direction: column; gap: 28px;
-      animation: fadeUp 0.3s ease forwards;
-    }
-
-    .setup-header { display: flex; flex-direction: column; gap: 6px; }
-
-    .page-title {
-      font-family: var(--display);
-      font-size: 24px; font-weight: 400;
-      color: var(--accent-hi); letter-spacing: 0.02em;
-    }
-
-    .page-sub {
-      font-size: 11px; color: var(--muted);
-      letter-spacing: 0.06em; text-transform: uppercase;
-    }
-
-    .how-it-works {
+    /* Layout Container */
+    .vault-row {
+      display: flex; align-items: center; width: 100%; height: 42px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 16px 18px;
-      display: flex; flex-direction: column; gap: 10px;
+      border-radius: var(--radius); padding: 0 10px; gap: 10px;
     }
 
-    .how-title { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    /* Views */
+    .view { display: none; align-items: center; width: 100%; gap: 10px; }
+    .active { display: flex; }
 
-    .steps { display: flex; flex-direction: column; gap: 7px; }
-
-    .step {
-      display: flex; align-items: flex-start; gap: 10px;
-      font-size: 12px; color: var(--muted-hi); line-height: 1.6;
+    /* Inputs */
+    input {
+      background: transparent; border: none; color: var(--text);
+      font-family: var(--mono); font-size: 12px; outline: none; width: 100%;
     }
+    input::placeholder { color: var(--muted); }
 
-    .step-num {
-      font-size: 10px; color: var(--accent);
-      background: var(--surface2); border-radius: 4px;
-      padding: 2px 6px; flex-shrink: 0; margin-top: 2px;
-    }
-
-    .form-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 22px;
-      display: flex; flex-direction: column; gap: 16px;
-    }
-
-    .field { display: flex; flex-direction: column; gap: 7px; }
-    .field label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
-
-    .field input, .field textarea {
-      font-family: var(--mono); font-size: 13px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--radius); color: var(--text);
-      padding: 10px 12px; width: 100%; outline: none;
-      transition: border-color 0.15s; resize: none;
-    }
-    .field input:focus, .field textarea:focus { border-color: var(--border-hi); }
-    .field input[type=password] { letter-spacing: 0.1em; }
-    .field textarea { min-height: 80px; line-height: 1.6; }
-
+    /* Buttons */
     .btn {
-      font-family: var(--mono); font-size: 12px;
-      letter-spacing: 0.06em; border: none; border-radius: var(--radius);
-      cursor: pointer; padding: 12px 20px; width: 100%;
-      transition: all 0.15s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      color: var(--muted); font-size: 10px; padding: 4px 8px;
+      cursor: pointer; text-transform: uppercase; white-space: nowrap;
     }
-    .btn-primary { background: var(--accent); color: #0c0c0d; font-weight: 500; }
-    .btn-primary:hover { background: var(--accent-hi); }
-    .btn-ghost {
-      background: none; border: 1px solid var(--border);
-      color: var(--muted-hi);
-    }
-    .btn-ghost:hover { border-color: var(--border-hi); color: var(--text); }
+    .btn:hover { border-color: var(--accent); color: var(--text); }
+    .btn-primary { background: var(--accent); color: #000; border: none; font-weight: 600; }
 
-    /* Result URL box */
-    .result-section {
-      display: none; flex-direction: column; gap: 12px;
-      animation: fadeUp 0.2s ease forwards;
-    }
-    .result-section.visible { display: flex; }
-
-    .result-label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
-
-    .result-url {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 11px 13px;
-      font-size: 11px; color: var(--accent);
-      word-break: break-all; line-height: 1.8;
-    }
-
-    .result-actions { display: flex; gap: 8px; }
-    .result-actions .btn { width: auto; flex: 1; }
-
-    .result-note {
-      font-size: 11px; color: var(--muted); line-height: 1.7;
-    }
-    .result-note strong { color: var(--muted-hi); }
-
-    /* ─────────────────────────────
-       EMBED VIEW  (has hash)
-    ───────────────────────────── */
-    #embed {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 16px;
-    }
-    #embed.active { display: flex; }
-
-    .embed-card {
-      width: 100%; max-width: 420px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      animation: fadeUp 0.25s ease forwards;
-    }
-
-    /* Locked state */
-    .embed-locked {
-      display: flex; flex-direction: column;
-    }
-
-    .embed-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .embed-label {
-      font-size: 13px; font-weight: 500; color: var(--text);
-    }
-
-    .lock-icon {
-      width: 18px; height: 18px;
-      color: var(--muted);
-    }
-
-    .embed-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-
-    .embed-input {
-      font-family: var(--mono); font-size: 13px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--radius); color: var(--text);
-      padding: 10px 12px; width: 100%; outline: none;
-      transition: border-color 0.15s; letter-spacing: 0.1em;
-    }
-    .embed-input:focus { border-color: var(--border-hi); }
-    .embed-input.shake { animation: shake 0.35s ease; }
-
-    .embed-error {
-      font-size: 11px; color: var(--danger);
-      display: none;
-    }
-    .embed-error.visible { display: block; }
-
-    /* Revealed state */
-    .embed-revealed { display: none; flex-direction: column; }
-    .embed-revealed.active { display: flex; }
-
-    .secret-display {
-      padding: 14px 16px;
-      font-size: 13px; color: var(--accent);
-      word-break: break-all; line-height: 1.75;
-      border-bottom: 1px solid var(--border);
-      min-height: 52px;
-    }
-
-    .embed-footer {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 16px;
-    }
-
-    .embed-footer-label { font-size: 11px; color: var(--muted); }
-
-    .small-actions { display: flex; gap: 6px; }
-
-    .small-btn {
-      background: none; border: 1px solid var(--border);
-      border-radius: 6px; cursor: pointer;
-      color: var(--muted-hi); padding: 5px 10px;
-      font-size: 11px; font-family: var(--mono);
-      transition: all 0.13s;
-    }
-    .small-btn:hover { border-color: var(--border-hi); color: var(--text); }
-    .small-btn.copied { color: var(--success); border-color: var(--success); }
-
-    /* ─────────────────────────────
-       SHARED
-    ───────────────────────────── */
-    .divider { height: 1px; background: var(--border); }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(5px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes shake {
-      0%,100% { transform: translateX(0); }
-      20% { transform: translateX(-6px); }
-      40% { transform: translateX(6px); }
-      60% { transform: translateX(-4px); }
-      80% { transform: translateX(4px); }
-    }
-
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+    .label-tag { color: var(--accent); font-weight: 500; min-width: fit-content; }
+    .divider { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
+    .shake { animation: shake 0.3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
   </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════
-     SETUP PAGE
-══════════════════════════════ -->
-<div id="setup">
-  <div class="setup-inner">
-
-    <div class="setup-header">
-      <div class="page-title">notion vault</div>
-      <div class="page-sub">create a self-contained secret embed</div>
-    </div>
-
-    <div class="how-it-works">
-      <div class="how-title">how it works</div>
-      <div class="steps">
-        <div class="step"><span class="step-num">01</span>Fill in a label, your secret, and a passphrase below.</div>
-        <div class="step"><span class="step-num">02</span>A unique URL is generated with the encrypted secret baked in.</div>
-        <div class="step"><span class="step-num">03</span>Paste that URL as a <strong>/embed</strong> block in Notion.</div>
-        <div class="step"><span class="step-num">04</span>Each embed is one secret — locked until you enter the passphrase.</div>
-      </div>
-    </div>
-
-    <div class="form-card">
-      <div class="field">
-        <label>Label</label>
-        <input type="text" id="s-label" placeholder="e.g. GitHub token, Netflix, AWS key…" autocomplete="off" />
-      </div>
-      <div class="field">
-        <label>Secret</label>
-        <textarea id="s-secret" placeholder="Password, token, API key…"></textarea>
-      </div>
-      <div class="field">
-        <label>Passphrase</label>
-        <input type="password" id="s-pass" placeholder="Choose a passphrase…" autocomplete="off" />
-      </div>
-
-      <button class="btn btn-primary" onclick="generateEmbed()">Generate embed URL</button>
-    </div>
-
-    <div class="result-section" id="result-section">
-      <div class="divider"></div>
-      <div class="result-label">Your embed URL</div>
-      <div class="result-url" id="result-url"></div>
-      <div class="result-actions">
-        <button class="btn btn-ghost" id="copy-url-btn" onclick="copyUrl()">Copy URL</button>
-        <button class="btn btn-ghost" onclick="openPreview()">Preview</button>
-      </div>
-      <div class="result-note">
-        <strong>Paste this in Notion</strong> using a <code>/embed</code> block.<br>
-        The secret never leaves your browser — everything is encoded in the URL.
-      </div>
-    </div>
-
+<div class="vault-row">
+  
+  <div id="view-start" class="view">
+    <span style="color:var(--muted)">Vault Empty</span>
+    <div style="flex-grow:1"></div>
+    <button class="btn btn-primary" onclick="showView('view-create')">+ Setup Secret</button>
   </div>
-</div>
 
-<!-- ══════════════════════════════
-     EMBED VIEW
-══════════════════════════════ -->
-<div id="embed">
-  <div class="embed-card">
-
-    <!-- Locked -->
-    <div class="embed-locked" id="embed-locked">
-      <div class="embed-header">
-        <span class="embed-label" id="embed-label-text">Secret</span>
-        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
-      </div>
-      <div class="embed-body">
-        <input class="embed-input" type="password" id="embed-pass"
-               placeholder="Enter passphrase to reveal…" autocomplete="off"
-               onkeydown="if(event.key==='Enter') revealSecret()" />
-        <div class="embed-error" id="embed-error">Wrong passphrase.</div>
-        <button class="btn btn-primary" onclick="revealSecret()">Unlock</button>
-      </div>
-    </div>
-
-    <!-- Revealed -->
-    <div class="embed-revealed" id="embed-revealed">
-      <div class="embed-header">
-        <span class="embed-label" id="embed-label-text2">Secret</span>
-        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success)">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-        </svg>
-      </div>
-      <div class="secret-display" id="secret-display"></div>
-      <div class="embed-footer">
-        <span class="embed-footer-label">notion vault</span>
-        <div class="small-actions">
-          <button class="small-btn" id="copy-secret-btn" onclick="copySecret()">copy</button>
-          <button class="small-btn" onclick="lockEmbed()">lock</button>
-        </div>
-      </div>
-    </div>
-
+  <div id="view-create" class="view">
+    <input type="text" id="s-label" placeholder="Label" style="width:20%">
+    <div class="divider"></div>
+    <input type="text" id="s-secret" placeholder="Secret/Token" style="width:40%">
+    <div class="divider"></div>
+    <input type="password" id="s-pass" placeholder="Passphrase">
+    <button class="btn btn-primary" onclick="generateAndSwap()">Save</button>
+    <button class="btn" onclick="showView('view-start')">✕</button>
   </div>
+
+  <div id="view-replace" class="view">
+    <span style="color:var(--success); font-size:11px">Encrypted!</span>
+    <input type="text" id="result-url" readonly style="color:var(--muted); font-size:10px">
+    <button class="btn btn-primary" id="copy-replace-btn" onclick="copyAndFinish()">Copy & Replace Embed</button>
+  </div>
+
+  <div id="view-locked" class="view">
+    <span class="label-tag" id="disp-label-locked"></span>
+    <div class="divider"></div>
+    <input type="password" id="unlock-pass" placeholder="Enter passphrase..." onkeydown="if(event.key==='Enter') unlock()">
+    <button class="btn btn-primary" onclick="unlock()">Unlock</button>
+  </div>
+
+  <div id="view-unlocked" class="view">
+    <span class="label-tag" id="disp-label-unlocked"></span>
+    <div class="divider"></div>
+    <div id="disp-secret" style="flex-grow:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+    <button class="btn" id="copy-btn" onclick="copySecret()">Copy</button>
+    <button class="btn" onclick="lock()">Lock</button>
+  </div>
+
 </div>
 
 <script>
-// ══════════════════════════════════════
-// Crypto — AES-256-GCM + PBKDF2
-// ══════════════════════════════════════
 const ENC = new TextEncoder();
 const DEC = new TextDecoder();
 
-function bufToB64(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); // URL-safe base64
-}
-
-function b64ToBuf(b64) {
+// --- Crypto Helpers ---
+function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64ToBuf(b64) { 
   b64 = b64.replace(/-/g,'+').replace(/_/g,'/');
   while (b64.length % 4) b64 += '=';
   return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }
-
 async function deriveKey(pass, salt) {
   const base = await crypto.subtle.importKey('raw', ENC.encode(pass), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt, iterations:310_000, hash:'SHA-256' },
-    base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
-  );
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
 }
-
-async function encryptStr(plain, pass) {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv   = crypto.getRandomValues(new Uint8Array(12));
-  const key  = await deriveKey(pass, salt);
-  const ct   = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ENC.encode(plain));
-  const out  = new Uint8Array(28 + ct.byteLength);
+async function encrypt(plain, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt);
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ENC.encode(plain));
+  const out = new Uint8Array(28 + ct.byteLength);
   out.set(salt,0); out.set(iv,16); out.set(new Uint8Array(ct),28);
   return bufToB64(out.buffer);
 }
-
-async function decryptStr(b64, pass) {
-  const d   = b64ToBuf(b64);
+async function decrypt(b64, pass) {
+  const d = b64ToBuf(b64);
   const key = await deriveKey(pass, d.slice(0,16));
-  const pt  = await crypto.subtle.decrypt({ name:'AES-GCM', iv:d.slice(16,28) }, key, d.slice(28));
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv:d.slice(16,28) }, key, d.slice(28));
   return DEC.decode(pt);
 }
 
-// ══════════════════════════════════════
-// Router — setup vs embed
-// ══════════════════════════════════════
-function route() {
+// --- App Logic ---
+let currentSecret = '';
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+async function generateAndSwap() {
+  const label = document.getElementById('s-label').value, secret = document.getElementById('s-secret').value, pass = document.getElementById('s-pass').value;
+  if(!label || !secret || !pass) return;
+  const encrypted = await encrypt(JSON.stringify({label, secret}), pass);
+  const labelB64 = btoa(unescape(encodeURIComponent(label))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const finalUrl = `${window.location.origin}${window.location.pathname}#v1.${labelB64}.${encrypted}`;
+  
+  document.getElementById('result-url').value = finalUrl;
+  showView('view-replace');
+}
+
+function copyAndFinish() {
+  navigator.clipboard.writeText(document.getElementById('result-url').value);
+  const btn = document.getElementById('copy-replace-btn');
+  btn.textContent = "Copied! Now Paste over this block.";
+  btn.style.background = "var(--success)";
+}
+
+async function unlock() {
+  const hash = location.hash.slice(1), pass = document.getElementById('unlock-pass').value, parts = hash.split('.');
+  try {
+    const plain = await decrypt(parts[2], pass);
+    const data = JSON.parse(plain);
+    currentSecret = data.secret;
+    document.getElementById('disp-secret').textContent = data.secret;
+    showView('view-unlocked');
+  } catch(e) {
+    document.querySelector('.vault-row').classList.add('shake');
+    setTimeout(() => document.querySelector('.vault-row').classList.remove('shake'), 300);
+  }
+}
+
+function lock() {
+  currentSecret = ''; document.getElementById('unlock-pass').value = '';
+  showView('view-locked');
+}
+
+function copySecret() {
+  navigator.clipboard.writeText(currentSecret);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'DONE'; setTimeout(() => btn.textContent = 'COPY', 1500);
+}
+
+function init() {
   const hash = location.hash.slice(1);
-  if (hash && hash.startsWith('v1.')) {
-    document.getElementById('embed').classList.add('active');
-    initEmbed(hash);
+  if (hash.startsWith('v1.')) {
+    const parts = hash.split('.');
+    try {
+      const label = decodeURIComponent(escape(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'))));
+      document.getElementById('disp-label-locked').textContent = label;
+      document.getElementById('disp-label-unlocked').textContent = label;
+      showView('view-locked');
+    } catch(e) { showView('view-start'); }
   } else {
-    document.getElementById('setup').classList.add('active');
+    showView('view-start');
   }
 }
-
-// ══════════════════════════════════════
-// SETUP
-// ══════════════════════════════════════
-let generatedUrl = '';
-
-async function generateEmbed() {
-  const label  = document.getElementById('s-label').value.trim();
-  const secret = document.getElementById('s-secret').value.trim();
-  const pass   = document.getElementById('s-pass').value;
-  if (!label || !secret || !pass) return;
-
-  // Encrypt payload: JSON with label + secret
-  const payload   = JSON.stringify({ label, secret });
-  const encrypted = await encryptStr(payload, pass);
-
-  // Build URL: base + #v1.<label_b64>.<ciphertext>
-  const labelB64  = btoa(unescape(encodeURIComponent(label)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const hash      = `v1.${labelB64}.${encrypted}`;
-  const base      = location.origin + location.pathname;
-  generatedUrl    = `${base}#${hash}`;
-
-  document.getElementById('result-url').textContent = generatedUrl;
-  document.getElementById('result-section').classList.add('visible');
-  document.getElementById('copy-url-btn').textContent = 'Copy URL';
-  document.getElementById('copy-url-btn').classList.remove('copied');
-}
-
-async function copyUrl() {
-  await navigator.clipboard.writeText(generatedUrl);
-  const btn = document.getElementById('copy-url-btn');
-  btn.textContent = 'Copied ✓'; btn.classList.add('copied');
-  setTimeout(() => { btn.textContent = 'Copy URL'; btn.classList.remove('copied'); }, 2000);
-}
-
-function openPreview() { window.open(generatedUrl, '_blank'); }
-
-// ══════════════════════════════════════
-// EMBED
-// ══════════════════════════════════════
-let revealedSecret = '';
-
-function initEmbed(hash) {
-  // Parse label from hash: v1.<labelB64>.<ciphertext>
-  const parts = hash.split('.');
-  if (parts.length < 3) return;
-  try {
-    const labelB64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
-    const label    = decodeURIComponent(escape(atob(labelB64 + '=='.slice(0, (4 - labelB64.length % 4) % 4))));
-    document.getElementById('embed-label-text').textContent  = label;
-    document.getElementById('embed-label-text2').textContent = label;
-  } catch { /* label decode failed, keep default */ }
-  setTimeout(() => document.getElementById('embed-pass').focus(), 100);
-}
-
-async function revealSecret() {
-  const hash = location.hash.slice(1);
-  const pass = document.getElementById('embed-pass').value;
-  if (!pass) return;
-
-  // ciphertext starts after v1.<labelB64>.
-  const firstDot  = hash.indexOf('.');
-  const secondDot = hash.indexOf('.', firstDot + 1);
-  const cipher    = hash.slice(secondDot + 1);
-
-  try {
-    const plain = await decryptStr(cipher, pass);
-    const data  = JSON.parse(plain);
-    revealedSecret = data.secret;
-
-    document.getElementById('secret-display').textContent = data.secret;
-    document.getElementById('embed-locked').style.display   = 'none';
-    document.getElementById('embed-revealed').classList.add('active');
-  } catch {
-    const inp = document.getElementById('embed-pass');
-    const err = document.getElementById('embed-error');
-    inp.classList.add('shake'); err.classList.add('visible');
-    setTimeout(() => inp.classList.remove('shake'), 400);
-    inp.value = '';
-  }
-}
-
-function lockEmbed() {
-  revealedSecret = '';
-  document.getElementById('embed-pass').value = '';
-  document.getElementById('embed-error').classList.remove('visible');
-  document.getElementById('embed-locked').style.display   = '';
-  document.getElementById('embed-revealed').classList.remove('active');
-  document.getElementById('secret-display').textContent   = '';
-  setTimeout(() => document.getElementById('embed-pass').focus(), 50);
-}
-
-async function copySecret() {
-  await navigator.clipboard.writeText(revealedSecret);
-  const btn = document.getElementById('copy-secret-btn');
-  btn.textContent = 'copied ✓'; btn.classList.add('copied');
-  setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
-}
-
-// ══════════════════════════════════════
-route();
+init();
 </script>
 </body>
 </html>
