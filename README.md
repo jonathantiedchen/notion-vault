@@ -16,11 +16,6 @@ This project is built on the principle that **trust is unnecessary when you have
 * **GitHub cannot see your data:** While GitHub hosts the code, the encryption happens entirely within your browser's temporary memory.
 * **Notion cannot see your data:** Notion only sees a URL. Because your secret is stored in the **URL Fragment** (everything after the `#`), it is never sent over the network.
 
-### Why the `#` matters
-In web technology, the part of a URL following a `#` is called the "fragment." **Web browsers are programmed to never send this fragment to any server.** 1.  When you load the vault, your browser asks GitHub for the `index.html` file.
-2.  The browser **withholds** the part of the link containing your password. 
-3.  The encryption/decryption happens locally on your CPU. 
-
 **Result:** Your secret data exists only in two places: **Inside the encrypted link on your Notion page** and **Inside your computer's RAM** for the few seconds it is unlocked.
 
 ---
