@@ -1,74 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <style>
-    :root { --bg: #121212; --accent: #c4a882; --border: #333; --text: #eee; }
-    body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; display: flex; align-items: center; height: 100vh; overflow: hidden; }
+    :root { --bg: #121212; --accent: #c4a882; --border: #333; --text: #eee; --radius: 6px; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui, sans-serif; margin: 0; display: flex; align-items: center; height: 100vh; overflow: hidden; }
     .row { display: flex; width: 100%; padding: 0 10px; gap: 8px; align-items: center; }
-    input { background: #1e1e1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 5px; font-size: 12px; flex: 1; outline: none; }
-    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+    .column { display: flex; flex-direction: column; width: 100%; padding: 10px; gap: 10px; }
+    input, textarea { background: #1e1e1e; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: var(--radius); font-size: 12px; outline: none; font-family: inherit; }
+    textarea { height: 60px; resize: none; }
+    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: var(--radius); cursor: pointer; font-weight: bold; font-size: 10px; text-transform: uppercase; white-space: nowrap; }
     .label { color: var(--accent); font-weight: bold; font-size: 12px; white-space: nowrap; }
-    #out-box { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 8px; font-size: 11px; flex: 1; text-align: center; cursor: pointer; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; }
+    .item-row { display: flex; align-items: center; background: #000; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 4px; gap: 10px; }
+    #out-box { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 12px; font-size: 11px; text-align: center; cursor: pointer; border-radius: var(--radius); width: 100%; }
+    .scroll { max-height: 140px; overflow-y: auto; }
   </style>
 </head>
 <body>
-  <div class="row" id="main">Loading...</div>
+  <div id="app" style="width:100%">Loading...</div>
 
 <script>
 const E = new TextEncoder(), D = new TextDecoder();
 
-// --- Encryption Logic ---
+// --- Crypto ---
 async function k(p, s) {
   const b = await crypto.subtle.importKey('raw', E.encode(p), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2', salt:s, iterations:100000, hash:'SHA-256'}, b, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
 }
 
-// --- View: Generator (Used to create the link) ---
+// --- Generator Logic ---
 function showGenerator() {
-  document.getElementById('main').innerHTML = `
-    <input id="n" placeholder="Name">
-    <input id="v" placeholder="Secret">
-    <input id="p" type="password" placeholder="Passphrase">
-    <button onclick="generate()">Generate</button>
+  document.getElementById('app').innerHTML = `
+    <div class="column">
+      <div style="display:flex; justify-content: space-between; align-items:center">
+        <span class="label">CREATOR</span>
+        <select id="type" onchange="toggleType()" style="background:#000; color:#fff; border:1px solid #333; font-size:10px; padding:2px">
+            <option value="single">Single Secret</option>
+            <option value="vault">Multi-Vault</option>
+        </select>
+      </div>
+      <input id="n" placeholder="Name (e.g. AWS Keys)">
+      <div id="input-area"><input id="v" placeholder="Secret"></div>
+      <input id="p" type="password" placeholder="Master Passphrase">
+      <button onclick="generate()">Generate Link</button>
+    </div>
   `;
 }
 
+function toggleType() {
+  const type = document.getElementById('type').value;
+  document.getElementById('input-area').innerHTML = type === 'single' 
+    ? `<input id="v" placeholder="Secret">`
+    : `<textarea id="v" placeholder="Enter secrets (one per line)"></textarea>`;
+}
+
 async function generate() {
-  const n = document.getElementById('n').value, v = document.getElementById('v').value, p = document.getElementById('p').value;
+  const n = document.getElementById('n').value, p = document.getElementById('p').value, type = document.getElementById('type').value;
+  let v = document.getElementById('v').value;
   if(!n || !v || !p) return;
+  
+  const payload = type === 'vault' ? { n, items: v.split('\n').filter(x => x.trim()) } : { n, v };
   const s = crypto.getRandomValues(new Uint8Array(16)), i = crypto.getRandomValues(new Uint8Array(12));
   const key = await k(p, s);
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:i}, key, E.encode(v));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:i}, key, E.encode(JSON.stringify(payload)));
   const out = new Uint8Array(28 + ct.byteLength);
   out.set(s,0); out.set(i,16); out.set(new Uint8Array(ct),28);
-  const finalUrl = window.location.origin + window.location.pathname + '#' + btoa(unescape(encodeURIComponent(n))) + '.' + btoa(String.fromCharCode(...out));
   
-  document.getElementById('main').innerHTML = `<div id="out-box" onclick="copy('${finalUrl}')">Link Ready! Click to Copy, then /embed in Notion.</div>`;
+  const finalUrl = window.location.origin + window.location.pathname + '#' + btoa(unescape(encodeURIComponent(n))) + '.' + btoa(String.fromCharCode(...out));
+  document.getElementById('app').innerHTML = `<div class="column"><div id="out-box" onclick="copy('${finalUrl}')">COPIED! Now /embed in Notion.</div></div>`;
+  navigator.clipboard.writeText(finalUrl);
 }
 
-function copy(url) {
-  navigator.clipboard.writeText(url);
-  document.getElementById('out-box').innerText = "COPIED! Now paste in Notion.";
-  document.getElementById('out-box').style.background = "#1a3a1a";
-}
+function copy(url) { navigator.clipboard.writeText(url); }
 
-// --- View: Vault (Used inside Notion) ---
+// --- Unlock Logic ---
 async function unlock() {
   const p = document.getElementById('up').value, h = location.hash.slice(1).split('.');
   try {
     const d = Uint8Array.from(atob(h[1]), c => c.charCodeAt(0));
     const key = await k(p, d.slice(0,16));
     const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:d.slice(16,28)}, key, d.slice(28));
-    document.getElementById('main').innerHTML = `<span class="label">${decodeURIComponent(escape(atob(h[0])))}:</span><input value="${D.decode(pt)}" readonly id="res"><button onclick="copyRes()">Copy</button>`;
+    const data = JSON.parse(D.decode(pt));
+    
+    if (data.items) {
+      // Vault View
+      let rows = data.items.map(it => `<div class="item-row"><span style="flex:1; font-size:11px">${it}</span><button onclick="cVal('${it.replace(/'/g,"\\'")}', this)" style="padding:4px 8px">Copy</button></div>`).join('');
+      document.getElementById('app').innerHTML = `<div class="column"><div style="display:flex; justify-content:space-between"><span class="label">${data.n}</span><button onclick="location.reload()" style="background:#444; padding:2px 6px">Lock</button></div><div class="scroll">${rows}</div></div>`;
+    } else {
+      // Single View
+      document.getElementById('app').innerHTML = `<div class="row"><span class="label">${data.n}:</span><input id="res" value="${data.v}" readonly><button onclick="cVal('${data.v.replace(/'/g,"\\'")}', this)">Copy</button><button onclick="location.reload()" style="background:#444">Lock</button></div>`;
+    }
   } catch(e) { alert("Wrong Passphrase"); }
 }
 
-function copyRes() { const r = document.getElementById('res'); r.select(); document.execCommand('copy'); }
+function cVal(t, b) { navigator.clipboard.writeText(t); b.innerText = 'OK'; setTimeout(()=>b.innerText='Copy',1000); }
 
-// --- Initialization ---
+// --- Init ---
 if(location.hash && location.hash.includes('.')) {
   const name = decodeURIComponent(escape(atob(location.hash.slice(1).split('.')[0])));
-  document.getElementById('main').innerHTML = `<span class="label">${name}:</span><input type="password" id="up" placeholder="Passphrase"><button onclick="unlock()">Unlock</button>`;
+  document.getElementById('app').innerHTML = `<div class="row"><span class="label">${name}:</span><input type="password" id="up" placeholder="Passphrase"><button onclick="unlock()">Unlock</button></div>`;
 } else {
   showGenerator();
 }
