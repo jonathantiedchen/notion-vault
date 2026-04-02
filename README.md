@@ -1,5 +1,4 @@
 # notion-vault
-# notion vault
 
 A lightweight, in-browser encryption tool designed to be embedded in Notion. Store sensitive text (passwords, keys, notes) safely — encrypted with AES-256-GCM directly in your browser, no data ever leaves your device.
 
