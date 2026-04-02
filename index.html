@@ -3,239 +3,186 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notion Vault - Dynamic Rows Fixed</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&family=Anybody:wght@500&display=swap" rel="stylesheet" />
+  <title>Notion Incremental Vault</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg: #0c0c0d; --surface: #141415; --border: #252528; --text: #e4e4e0;
-      --muted: #5a5a62; --accent: #c4a882; --success: #52b788; --danger: #ff4d4d; --radius: 8px;
-      --mono: 'Geist Mono', monospace;
+      --muted: #5a5a62; --accent: #c4a882; --success: #52b788; --radius: 8px;
     }
-    body { 
-      background: var(--bg); color: var(--text); font-family: var(--mono); 
-      font-size: 13px; height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 10px; margin: 0;
-    }
-
-    .vault-card {
-      width: 100%; max-width: 480px; background: var(--surface);
-      border: 1px solid var(--border); border-radius: var(--radius);
-      display: flex; flex-direction: column; overflow: hidden;
-    }
-
-    .view { display: none; flex-direction: column; width: 100%; padding: 16px; gap: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Geist Mono', monospace; font-size: 13px; padding: 10px; display: flex; justify-content: center; }
+    
+    .vault-card { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+    .view { display: none; padding: 15px; flex-direction: column; gap: 10px; }
     .active { display: flex; }
 
-    input {
-      background: #000; border: 1px solid var(--border); color: var(--text);
-      font-family: var(--mono); font-size: 12px; outline: none; padding: 8px 12px; border-radius: 6px;
-      width: 100%;
-    }
+    input { background: #000; border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 12px; padding: 8px 12px; border-radius: 6px; outline: none; width: 100%; }
     input:focus { border-color: var(--accent); }
-
-    .btn {
-      background: none; border: 1px solid var(--border); border-radius: 4px;
-      color: var(--muted); font-size: 10px; padding: 6px 12px;
-      cursor: pointer; text-transform: uppercase; transition: 0.2s;
-    }
+    
+    .btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-size: 10px; padding: 6px 12px; cursor: pointer; text-transform: uppercase; }
     .btn:hover { border-color: var(--accent); color: var(--text); }
     .btn-primary { background: var(--accent); color: #000; border: none; font-weight: 600; }
-    .btn-add { border-style: dashed; width: 100%; margin-top: 4px; color: var(--accent); }
-
-    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .title { font-family: 'Anybody'; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); }
     
-    .secret-row {
-      display: flex; align-items: center; gap: 8px; background: #000; 
-      padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);
-      margin-bottom: 6px;
-    }
-    .input-group { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
-
-    .scroll-area { max-height: 140px; overflow-y: auto; padding-right: 4px; }
-    .scroll-area::-webkit-scrollbar { width: 4px; }
-    .scroll-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
-    .shake { animation: shake 0.3s ease; }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+    .secret-item { display: flex; align-items: center; gap: 8px; background: #000; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 5px; }
+    .scroll-area { max-height: 120px; overflow-y: auto; margin-bottom: 5px; }
+    
+    #fallback-copy { position: absolute; opacity: 0; pointer-events: none; }
+    .copy-toast { font-size: 10px; color: var(--success); text-align: center; display: none; }
   </style>
 </head>
 <body>
 
 <div class="vault-card" id="main-card">
-  
-  <div id="view-start" class="view">
-    <div class="header"><span class="title">Vault Creator</span></div>
-    <button class="btn btn-primary" onclick="showView('view-create')">+ Create New Vault</button>
-  </div>
-
-  <div id="view-create" class="view">
-    <div class="header"><span class="title">Setup Secrets</span></div>
-    <input type="text" id="s-label" placeholder="Vault Name (e.g. AWS Keys)">
-    
-    <div class="scroll-area" id="input-container">
-      <div class="input-group">
-        <input type="text" class="secret-input" placeholder="Secret 1">
-      </div>
-    </div>
-    
-    <button class="btn btn-add" onclick="addInputRow()">+ Add Another Secret</button>
-    <input type="password" id="s-pass" placeholder="Set Unlock Passphrase" style="margin-top:8px;">
-    
-    <div style="display:flex; gap:8px; margin-top:4px;">
-        <button class="btn btn-primary" style="flex:2" onclick="generateAndSwap()">Encrypt & Save</button>
-        <button class="btn" style="flex:1" onclick="location.reload()">Cancel</button>
-    </div>
-  </div>
-
-  <div id="view-replace" class="view">
-    <div class="header"><span class="title" style="color:var(--success)">Locked & Loaded</span></div>
-    <p style="font-size:10px; color:var(--muted)">1. Click button below<br>2. Highlight this block in Notion<br>3. CMD/CTRL + V</p>
-    <button class="btn btn-primary" id="copy-replace-btn" onclick="copyAndFinish()">Copy & Replace Embed</button>
+  <div id="view-setup" class="view">
+    <div style="font-size:10px; color:var(--accent)">INITIAL SETUP</div>
+    <input type="text" id="setup-label" placeholder="Vault Name">
+    <input type="text" id="setup-secret" placeholder="First Secret">
+    <input type="password" id="setup-pass" placeholder="Master Passphrase">
+    <button class="btn btn-primary" onclick="save(true)">Create Vault</button>
   </div>
 
   <div id="view-locked" class="view">
-    <div class="header">
-        <span class="title" id="disp-label-locked">Vault</span>
-        <span style="font-size:9px; color:var(--muted)">AES-256</span>
-    </div>
-    <div style="display:flex; gap:8px;">
-        <input type="password" id="unlock-pass" placeholder="Passphrase..." style="flex:1" onkeydown="if(event.key==='Enter') unlock()">
-        <button class="btn btn-primary" onclick="unlock()">Unlock</button>
+    <div id="lock-label" style="font-size:10px; color:var(--accent)">VAULT</div>
+    <div style="display:flex; gap:5px;">
+      <input type="password" id="unlock-pass" placeholder="Passphrase..." onkeydown="if(event.key==='Enter') unlock()">
+      <button class="btn btn-primary" onclick="unlock()">Unlock</button>
     </div>
   </div>
 
   <div id="view-unlocked" class="view">
-    <div class="header">
-        <span class="title" id="disp-label-unlocked">Vault</span>
-        <button class="btn" onclick="lock()" style="padding:2px 8px;">Lock</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span id="unlock-label" style="color:var(--accent); font-size:11px;"></span>
+      <button class="btn" onclick="lock()" style="padding:2px 6px;">Lock</button>
     </div>
-    <div class="scroll-area" id="secrets-display-container"></div>
+    
+    <div class="scroll-area" id="list-container"></div>
+    
+    <div style="border-top: 1px solid var(--border); pt: 10px; display:flex; gap:5px; flex-direction:column;">
+      <div style="display:flex; gap:5px;">
+        <input type="text" id="new-secret-input" placeholder="Add another secret..." style="flex:1">
+        <button class="btn btn-primary" onclick="addSecretToList()">+</button>
+      </div>
+      <button id="update-btn" class="btn" onclick="save(false)" style="display:none; border-color:var(--success); color:var(--success)">Update & Copy New URL</button>
+      <div id="copy-status" class="copy-toast">URL Copied! Paste over this block in Notion.</div>
+    </div>
   </div>
-
 </div>
+
+<textarea id="fallback-copy"></textarea>
 
 <script>
 const ENC = new TextEncoder(), DEC = new TextDecoder();
+let currentSecrets = [], currentLabel = '', currentPass = '';
 
-function addInputRow() {
-    const container = document.getElementById('input-container');
-    const div = document.createElement('div');
-    div.className = 'input-group';
-    div.innerHTML = `
-        <input type="text" class="secret-input" placeholder="Secret ${container.children.length + 1}">
-        <button class="btn" onclick="this.parentElement.remove()" style="border:none; color:var(--danger); padding:0 8px; font-weight:bold;">✕</button>
-    `;
-    container.appendChild(div);
-}
-
-function bufToB64(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
-function b64ToBuf(b64) { 
-    b64 = b64.replace(/-/g,'+').replace(/_/g,'/'); 
-    while (b64.length % 4) b64 += '='; 
-    return Uint8Array.from(atob(b64), c => c.charCodeAt(0)); 
-}
-
+// --- Crypto ---
 async function deriveKey(pass, salt) {
-    const base = await crypto.subtle.importKey('raw', ENC.encode(pass), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+  const base = await crypto.subtle.importKey('raw', ENC.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
 }
-
-async function encrypt(plain, pass) {
-    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-    const key = await deriveKey(pass, salt);
-    const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ENC.encode(plain));
-    const out = new Uint8Array(28 + ct.byteLength);
-    out.set(salt,0); out.set(iv,16); out.set(new Uint8Array(ct),28);
-    return bufToB64(out.buffer);
+async function encrypt(data, pass) {
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt);
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ENC.encode(JSON.stringify(data)));
+  const out = new Uint8Array(28 + ct.byteLength);
+  out.set(salt,0); out.set(iv,16); out.set(new Uint8Array(ct),28);
+  return btoa(String.fromCharCode(...out)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
-
 async function decrypt(b64, pass) {
-    const d = b64ToBuf(b64);
-    const key = await deriveKey(pass, d.slice(0,16));
-    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv:d.slice(16,28) }, key, d.slice(28));
-    return DEC.decode(pt);
+  const d = Uint8Array.from(atob(b64.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+  const key = await deriveKey(pass, d.slice(0,16));
+  const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv:d.slice(16,28) }, key, d.slice(28));
+  return JSON.parse(DEC.decode(pt));
 }
 
+// --- App ---
 function showView(id) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
 
-async function generateAndSwap() {
-    const label = document.getElementById('s-label').value.trim();
-    const inputs = document.querySelectorAll('.secret-input');
-    const secrets = Array.from(inputs).map(i => i.value.trim()).filter(v => v !== '');
-    const pass = document.getElementById('s-pass').value;
-    
-    if(!label || secrets.length === 0 || !pass) {
-        document.getElementById('main-card').classList.add('shake');
-        setTimeout(() => document.getElementById('main-card').classList.remove('shake'), 300);
-        return;
-    }
-
-    try {
-        const encrypted = await encrypt(JSON.stringify({label, secrets}), pass);
-        const labelB64 = btoa(unescape(encodeURIComponent(label))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-        window.tempUrl = `${window.location.origin}${window.location.pathname}#v2.${labelB64}.${encrypted}`;
-        showView('view-replace');
-    } catch(e) {
-        alert("Encryption error. Check your console.");
-    }
+function addSecretToList() {
+  const val = document.getElementById('new-secret-input').value.trim();
+  if(!val) return;
+  currentSecrets.push(val);
+  document.getElementById('new-secret-input').value = '';
+  renderList();
+  document.getElementById('update-btn').style.display = 'block';
 }
 
-function copyAndFinish() {
-    navigator.clipboard.writeText(window.tempUrl);
-    const btn = document.getElementById('copy-replace-btn');
-    btn.textContent = "COPIED! PASTE OVER BLOCK"; btn.style.background = "var(--success)";
+function renderList() {
+  const container = document.getElementById('list-container');
+  container.innerHTML = currentSecrets.map((s, i) => `
+    <div class="secret-item">
+      <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">${s}</span>
+      <button class="btn" onclick="copyVal('${s.replace(/'/g,"\\'")}', this)" style="border:none">Copy</button>
+      <button class="btn" onclick="removeSecret(${i})" style="border:none; color:red">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeSecret(i) {
+  currentSecrets.splice(i, 1);
+  renderList();
+  document.getElementById('update-btn').style.display = 'block';
+}
+
+async function save(isFirstTime) {
+  if(isFirstTime) {
+    currentLabel = document.getElementById('setup-label').value;
+    currentSecrets = [document.getElementById('setup-secret').value];
+    currentPass = document.getElementById('setup-pass').value;
+  }
+  
+  const encrypted = await encrypt({label: currentLabel, secrets: currentSecrets}, currentPass);
+  const labelB64 = btoa(unescape(encodeURIComponent(currentLabel))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const url = `${window.location.origin}${window.location.pathname}#v3.${labelB64}.${encrypted}`;
+  
+  // Robust Copy
+  const fb = document.getElementById('fallback-copy');
+  fb.value = url; fb.select();
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch(e) {
+    document.execCommand('copy');
+  }
+  
+  const status = document.getElementById('copy-status');
+  status.style.display = 'block';
+  setTimeout(() => { status.style.display = 'none'; if(isFirstTime) location.hash = url.split('#')[1]; }, 4000);
 }
 
 async function unlock() {
-    const hash = location.hash.slice(1), pass = document.getElementById('unlock-pass').value;
-    const parts = hash.split('.');
-    try {
-        const plain = await decrypt(parts[2], pass);
-        const data = JSON.parse(plain);
-        const container = document.getElementById('secrets-display-container');
-        container.innerHTML = '';
-        
-        const list = Array.isArray(data.secrets) ? data.secrets : [data.secret];
-        list.forEach(val => {
-            const row = document.createElement('div');
-            row.className = 'secret-row';
-            row.innerHTML = `<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;">${val}</span><button class="btn" onclick="copyVal('${val.replace(/'/g, "\\'")}', this)">Copy</button>`;
-            container.appendChild(row);
-        });
-
-        document.getElementById('disp-label-unlocked').textContent = data.label;
-        showView('view-unlocked');
-    } catch(e) {
-        document.getElementById('main-card').classList.add('shake');
-        setTimeout(() => document.getElementById('main-card').classList.remove('shake'), 300);
-    }
+  const pass = document.getElementById('unlock-pass').value;
+  const hash = location.hash.slice(1).split('.');
+  try {
+    const data = await decrypt(hash[2], pass);
+    currentSecrets = data.secrets || [data.secret];
+    currentLabel = data.label;
+    currentPass = pass;
+    document.getElementById('unlock-label').textContent = currentLabel;
+    renderList();
+    showView('view-unlocked');
+  } catch(e) { alert("Wrong Passphrase"); }
 }
 
 function copyVal(txt, btn) {
-    navigator.clipboard.writeText(txt);
-    const old = btn.textContent; btn.textContent = '✓'; setTimeout(() => btn.textContent = old, 1000);
+  navigator.clipboard.writeText(txt);
+  const old = btn.textContent; btn.textContent = '✓';
+  setTimeout(() => btn.textContent = old, 1000);
 }
 
-function lock() {
-    document.getElementById('unlock-pass').value = '';
-    showView('view-locked');
-}
+function lock() { location.reload(); }
 
 function init() {
-    const hash = location.hash.slice(1);
-    if (hash.startsWith('v1.') || hash.startsWith('v2.')) {
-        const parts = hash.split('.');
-        try {
-            const label = decodeURIComponent(escape(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'))));
-            document.getElementById('disp-label-locked').textContent = label;
-            showView('view-locked');
-        } catch(e) { showView('view-start'); }
-    } else { showView('view-start'); }
+  const hash = location.hash.slice(1);
+  if(hash.startsWith('v')) {
+    const label = decodeURIComponent(escape(atob(hash.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))));
+    document.getElementById('lock-label').textContent = label;
+    showView('view-locked');
+  } else {
+    showView('view-setup');
+  }
 }
 init();
 </script>
