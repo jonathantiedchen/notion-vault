@@ -3,80 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Notion Vault</title>
+  <title>Notion Vault | Private Encryption</title>
   <style>
-    /* Super simple, robust dark theme */
-    body { 
-      background: #121212; 
-      color: #eee; 
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-      margin: 0; 
-      display: flex; 
-      justify-content: center;
-      align-items: center; 
-      height: 100vh; 
-      overflow: hidden;
+    :root {
+      --bg: #0a0a0a;
+      --card-bg: #141414;
+      --accent: #c4a882;
+      --text-main: #ffffff;
+      --text-dim: #a0a0a0;
+      --border: rgba(255, 255, 255, 0.08);
+      --input-bg: #000000;
     }
 
-    #app { width: 100%; max-width: 450px; padding: 15px; box-sizing: border-box; }
-
-    .box { background: #1e1e1e; padding: 25px; border-radius: 8px; border: 1px solid #333; }
-    
-    .field { margin-bottom: 15px; }
-    .field label { display: block; font-size: 11px; font-weight: bold; color: #c4a882; margin-bottom: 5px; text-transform: uppercase; }
-
-    /* Bulletproof row: Label and Button NEVER shrink, Input shrinks */
-    .row { display: flex; width: 100%; gap: 10px; align-items: center; box-sizing: border-box; }
-    
-    .vault-label { 
-      color: #c4a882; 
-      font-weight: bold; 
-      font-size: 14px; 
-      white-space: nowrap; 
-      flex-shrink: 0; /* This prevents the "g..." cutoff completely */
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle at 50% -20%, #1a1a1a 0%, var(--bg) 80%);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
     }
 
-    input, textarea, select { 
-      background: #000; 
-      border: 1px solid #444; 
-      color: #fff; 
-      padding: 10px; 
-      border-radius: 6px; 
-      font-size: 14px; 
-      outline: none; 
+    /* --- LAYOUT --- */
+    .container {
       width: 100%;
+      max-width: 500px;
+      padding: 80px 20px;
+      box-sizing: border-box;
+      flex-grow: 1;
+    }
+
+    header { text-align: center; margin-bottom: 40px; }
+    header h1 { font-size: 32px; font-weight: 700; letter-spacing: -1px; margin: 0; }
+    header p { color: var(--text-dim); font-size: 16px; margin-top: 10px; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    /* --- FORM ELEMENTS --- */
+    .field { margin-bottom: 24px; }
+    .label { 
+      display: block; 
+      font-size: 12px; 
+      font-weight: 600; 
+      color: var(--accent); 
+      text-transform: uppercase; 
+      letter-spacing: 1px; 
+      margin-bottom: 8px; 
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: white;
+      font-size: 15px;
+      transition: all 0.2s ease;
       box-sizing: border-box;
     }
 
-    .flex-input { 
-      flex-grow: 1; 
-      min-width: 0; /* This forces the input to shrink instead of the text */
+    input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(196, 168, 130, 0.2); }
+
+    button {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 14px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.1s ease, opacity 0.2s ease;
     }
 
-    textarea { height: 80px; resize: none; }
+    button:hover { opacity: 0.9; }
+    button:active { transform: scale(0.98); }
 
-    button { 
-      background: #c4a882; 
-      border: none; 
-      padding: 10px 15px; 
-      border-radius: 6px; 
-      cursor: pointer; 
-      font-weight: bold; 
-      color: #000; 
-      white-space: nowrap; 
-      flex-shrink: 0; /* Button never shrinks */
+    .secondary-btn {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      margin-top: 12px;
     }
 
-    button.full { width: 100%; margin-top: 10px; }
-    button.secondary { background: #333; color: #fff; }
+    /* --- NOTION EMBED VIEW --- */
+    .notion-row { 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      width: 100%; 
+      height: 100vh;
+      padding: 0 16px;
+      box-sizing: border-box;
+    }
+    .vault-tag { color: var(--accent); font-weight: 700; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
+    .flex-input { flex-grow: 1; min-width: 0; }
 
-    .scroll-area { max-height: 200px; overflow-y: auto; margin-top: 15px; padding-right: 5px; }
-    .item-row { display: flex; align-items: center; background: #000; padding: 8px; border-radius: 6px; border: 1px solid #333; margin-bottom: 8px; gap: 10px; }
-    .item-label { font-size: 12px; color: #aaa; width: 70px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+    /* --- FOOTER --- */
+    footer {
+      padding: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(196, 168, 130, 0.1);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-weight: 600;
+      font-size: 11px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+
+<div id="app"></div>
 
 <script>
 'use strict';
@@ -89,54 +150,62 @@ async function deriveKey(pass, salt) {
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
-// --- 1. GENERATOR SCREEN ---
 function showGenerator() {
   document.getElementById('app').innerHTML = `
-    <div class="box">
-      <h2 style="color: #c4a882; margin: 0 0 20px 0; text-align: center;">Vault Creator</h2>
-      
-      <div class="field">
-        <label>Type</label>
-        <select id="type">
-          <option value="single">Single Secret</option>
-          <option value="vault">Multi-Vault (List)</option>
-        </select>
+    <div class="container">
+      <header>
+        <div class="badge">🛡️ Zero-Knowledge Encryption</div>
+        <h1>Notion Vault</h1>
+        <p>Private, local-only secret storage.</p>
+      </header>
+
+      <div class="card">
+        <div class="field">
+          <label class="label">Vault Configuration</label>
+          <select id="type">
+            <option value="single">Single Secret</option>
+            <option value="vault">Multi-Item List</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="label">Title</label>
+          <input id="name" placeholder="e.g. Database Password" autocomplete="off">
+        </div>
+
+        <div id="input-area" class="field">
+          <label class="label">Secret Data</label>
+          <input id="val" placeholder="Sensitive content here...">
+        </div>
+
+        <div class="field">
+          <label class="label">Master Passphrase</label>
+          <input id="pass" type="password" placeholder="The key to unlock this">
+        </div>
+
+        <button onclick="generate()">Generate & Copy Secure Link</button>
       </div>
 
-      <div class="field">
-        <label>Display Name</label>
-        <input id="name" placeholder="e.g. Git Password">
-      </div>
-
-      <div class="field" id="input-area">
-        <label>Secret Content</label>
-        <input id="val" placeholder="Paste sensitive data here...">
-      </div>
-
-      <div class="field">
-        <label>Master Passphrase</label>
-        <input id="pass" type="password" placeholder="Don't forget this!">
-      </div>
-
-      <button class="full" onclick="generate()">Encrypt & Create Link</button>
+      <footer>
+        Math-based privacy. Your data never leaves your device.<br>
+        <a href="https://github.com/jonathantiedchen/notion-vault" style="color:var(--accent); text-decoration:none; margin-top:10px; display:inline-block;">View Source on GitHub</a>
+      </footer>
     </div>
   `;
 
   document.getElementById('type').onchange = (e) => {
     document.getElementById('input-area').innerHTML = e.target.value === 'single' 
-      ? '<label>Secret Content</label><input id="val" placeholder="Paste sensitive data here...">' 
-      : '<label>Vault Items</label><textarea id="val" placeholder="Label: Secret&#10;User: Admin&#10;(One per line)"></textarea>';
+      ? '<label class="label">Secret Data</label><input id="val" placeholder="Sensitive content here...">' 
+      : '<label class="label">Vault Items</label><textarea id="val" placeholder="Label: Secret&#10;User: Admin&#10;(One per line)"></textarea>';
   };
 }
 
-// --- 2. GENERATION & LINK DISPLAY ---
 async function generate() {
   const n = document.getElementById('name').value, v = document.getElementById('val').value, p = document.getElementById('pass').value, t = document.getElementById('type').value;
-  if(!n || !v || !p) return alert("Fill all fields.");
+  if(!n || !v || !p) return alert("Please fill in all fields.");
 
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(p, salt);
-  
   const payload = t === 'single' ? {n, v} : {n, items: v.split('\n').filter(l=>l.trim()).map(l => {
     const parts = l.split(':');
     return parts.length > 1 ? {l: parts[0].trim(), v: parts.slice(1).join(':').trim()} : {l: l.trim(), v: l.trim()};
@@ -145,39 +214,30 @@ async function generate() {
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, E.encode(JSON.stringify(payload)));
   const blob = new Uint8Array(28 + ct.byteLength);
   blob.set(salt, 0); blob.set(iv, 16); blob.set(new Uint8Array(ct), 28);
-
   const b64Data = btoa(String.fromCharCode(...blob)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const url = window.location.href.split('#')[0] + '#' + toB64(n) + '.' + b64Data;
   
-  // Auto-copy to clipboard
-  try { await navigator.clipboard.writeText(url); } catch(err) { console.log("Auto-copy failed", err); }
+  await navigator.clipboard.writeText(url);
 
-  // Display the link with a copy button
   document.getElementById('app').innerHTML = `
-    <div class="box" style="text-align: center;">
-      <h2 style="color: #c4a882; margin-top: 0;">✅ Link Ready!</h2>
-      <p style="font-size: 13px; color: #aaa; margin-bottom: 20px;">The secure link has been automatically copied to your clipboard. Paste it into Notion using <strong>/embed</strong>.</p>
-      
-      <div class="row" style="margin-bottom: 20px;">
-        <input type="text" id="link-display" value="${url}" readonly class="flex-input" onclick="this.select()">
-        <button id="copy-btn" onclick="copyLinkBtn()">Copy</button>
+    <div class="container">
+      <header>
+        <div class="badge">Success</div>
+        <h1>Link Generated</h1>
+        <p>The encrypted URL is copied to your clipboard.</p>
+      </header>
+      <div class="card" style="text-align:center">
+        <div class="field">
+          <label class="label">Secure Link</label>
+          <input type="text" value="${url}" readonly onclick="this.select()">
+        </div>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:20px;">Paste this into Notion using <strong>/embed</strong>.</p>
+        <button onclick="window.location.reload()" class="secondary-btn">Create Another</button>
       </div>
-
-      <button class="full secondary" onclick="window.location.reload()">Create Another Vault</button>
     </div>
   `;
 }
 
-function copyLinkBtn() {
-  const linkInput = document.getElementById('link-display');
-  linkInput.select();
-  navigator.clipboard.writeText(linkInput.value);
-  const btn = document.getElementById('copy-btn');
-  btn.innerText = 'Copied!';
-  setTimeout(() => btn.innerText = 'Copy', 2000);
-}
-
-// --- 3. NOTION UNLOCK VIEW ---
 async function unlock() {
   const p = document.getElementById('up').value, h = location.hash.slice(1).split('.');
   try {
@@ -187,27 +247,18 @@ async function unlock() {
     const data = JSON.parse(D.decode(pt));
     
     if(data.items) {
-      let html = `<div style="width:100%;">
-        <div class="row" style="border-bottom: 1px solid #333; padding-bottom: 10px;">
-          <span class="vault-label">${data.n}</span>
-          <div style="flex-grow:1"></div>
-          <button class="secondary" onclick="location.reload()">Lock</button>
-        </div>
-        <div class="scroll-area">`;
-      html += data.items.map(i => `
-        <div class="item-row">
-          <span class="item-label">${i.l}</span>
-          <input class="flex-input" type="password" value="${i.v}" readonly onclick="this.type='text'" onblur="this.type='password'" style="background:transparent; border:none; padding:0;">
-          <button onclick="copyVal('${i.v.replace(/'/g, "\\'")}', this)" style="padding: 5px 10px; font-size: 11px;">Copy</button>
-        </div>`).join('') + `</div></div>`;
+      let html = `<div style="width:100%; height:100vh; background:var(--bg); display:flex; flex-direction:column;"><div class="notion-row" style="height:auto; padding:15px; border-bottom:1px solid var(--border);"><span class="vault-tag">${data.n}</span><div style="flex-grow:1"></div><button onclick="location.reload()" style="width:auto; padding:6px 12px;" class="secondary-btn">Lock</button></div><div style="flex-grow:1; overflow-y:auto; padding:15px;">`;
+      html += data.items.map(i => `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><span style="font-size:12px; color:var(--text-dim); width:80px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${i.l}</span><input class="flex-input" type="password" value="${i.v}" readonly onclick="this.type='text'" onblur="this.type='password'" style="background:transparent; border:none; padding:0;"><button onclick="copyVal('${i.v.replace(/'/g, "\\'")}', this)" style="width:auto; padding:5px 10px; font-size:10px;">Copy</button></div>`).join('') + `</div></div>`;
+      document.body.style.backgroundImage = 'none';
       document.getElementById('app').innerHTML = html;
     } else {
+      document.body.style.backgroundImage = 'none';
       document.getElementById('app').innerHTML = `
-        <div class="row">
-          <span class="vault-label">${data.n}</span>
+        <div class="notion-row">
+          <span class="vault-tag">${data.n}</span>
           <input class="flex-input" type="password" value="${data.v}" readonly id="res" onclick="this.type='text'" onblur="this.type='password'">
-          <button onclick="copyVal(document.getElementById('res').value, this)">Copy</button>
-          <button class="secondary" onclick="location.reload()">Lock</button>
+          <button onclick="copyVal(document.getElementById('res').value, this)" style="width:auto; padding:8px 15px;">Copy</button>
+          <button onclick="location.reload()" class="secondary-btn" style="width:auto; padding:8px 15px; margin:0;">Lock</button>
         </div>`;
     }
   } catch(e) { alert("Wrong Passphrase"); }
@@ -220,17 +271,17 @@ function init() {
   if(h && h.includes('.')) {
     try {
       const name = fromB64(h.split('.')[0]);
+      document.body.style.backgroundImage = 'none';
       document.getElementById('app').innerHTML = `
-        <div class="row">
-          <span class="vault-label">${name}</span>
+        <div class="notion-row">
+          <span class="vault-tag">${name}</span>
           <input class="flex-input" id="up" type="password" placeholder="Passphrase" onkeydown="if(event.key==='Enter') unlock()">
-          <button onclick="unlock()">Unlock</button>
+          <button onclick="unlock()" style="width:auto; padding:8px 15px;">Unlock</button>
         </div>`;
       document.getElementById('up').focus();
     } catch(e) { showGenerator(); }
   } else { showGenerator(); }
 }
-
 init();
 </script>
 </body>
