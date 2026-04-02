@@ -1,119 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Notion Secret Row</title>
   <style>
-    :root { --bg: #0c0c0d; --surface: #19191a; --border: #2e2e30; --text: #e4e4e0; --accent: #c4a882; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 13px; height: 100vh; display: flex; align-items: center; overflow: hidden; }
-    
-    .row { display: flex; width: 100%; height: 40px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; align-items: center; gap: 8px; margin: 0 5px; }
-    .view { display: none; width: 100%; align-items: center; gap: 8px; }
-    .active { display: flex; }
-
-    input { background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 13px; outline: none; flex-grow: 1; min-width: 0; }
-    .btn { background: var(--border); border: none; color: var(--text); font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; font-weight: 500; }
-    .btn:hover { background: #3a3a3c; }
-    .btn-primary { background: var(--accent); color: #000; }
-    .label { color: var(--accent); font-weight: 600; flex-shrink: 0; }
-    
-    #output-url { background: #000; color: #888; font-size: 10px; cursor: all; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px dashed #444; padding: 4px; border-radius: 3px; cursor: pointer; }
+    :root { --bg: #191919; --accent: #c4a882; --border: #333; }
+    body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; display: flex; align-items: center; height: 100vh; overflow: hidden; }
+    .row { display: flex; width: 100%; padding: 0 10px; gap: 8px; align-items: center; }
+    input { background: #252525; border: 1px solid var(--border); color: #fff; padding: 8px; border-radius: 5px; font-size: 12px; flex: 1; outline: none; }
+    input:focus { border-color: var(--accent); }
+    button { background: var(--accent); border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 11px; text-transform: uppercase; }
+    .label { color: var(--accent); font-weight: bold; font-size: 12px; white-space: nowrap; }
+    #copy-prompt { background: #000; border: 1px dashed var(--accent); color: var(--accent); padding: 8px; font-size: 11px; flex: 1; text-align: center; cursor: pointer; border-radius: 5px; }
   </style>
 </head>
 <body>
-
-  <div class="row">
-    <div id="view-create" class="view active">
-      <input type="text" id="in-name" placeholder="Name (e.g. WiFi)">
-      <input type="text" id="in-val" placeholder="Secret">
-      <input type="password" id="in-pass" placeholder="Passphrase">
-      <button class="btn btn-primary" onclick="create()">Protect</button>
-    </div>
-
-    <div id="view-gen" class="view">
-      <span style="font-size:11px; color:var(--accent); flex-shrink:0;">Click to select:</span>
-      <div id="output-url" onclick="selectAndCopy(this)">Generating...</div>
-      <button class="btn" onclick="location.reload()">Reset</button>
-    </div>
-
-    <div id="view-locked" class="view">
-      <span class="label" id="disp-name"></span>
-      <input type="password" id="unlock-pass" placeholder="Enter passphrase..." onkeydown="if(event.key==='Enter') unlock()">
-      <button class="btn btn-primary" onclick="unlock()">Unlock</button>
-    </div>
-
-    <div id="view-unlocked" class="view">
-      <span class="label" id="disp-name-final"></span>
-      <input type="text" id="disp-val" readonly>
-      <button class="btn" onclick="copyResult(this)">Copy</button>
-      <button class="btn" onclick="location.reload()">Lock</button>
-    </div>
+  <div class="row" id="ui">
+    <input id="n" placeholder="Name (e.g. WiFi)">
+    <input id="v" placeholder="Secret">
+    <input id="p" type="password" placeholder="Passphrase">
+    <button onclick="lock()">Lock</button>
   </div>
 
 <script>
-const ENC = new TextEncoder(), DEC = new TextDecoder();
-
-async function deriveKey(pass, salt) {
-  const base = await crypto.subtle.importKey('raw', ENC.encode(pass), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:100000, hash:'SHA-256' }, base, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
+const E = new TextEncoder(), D = new TextDecoder();
+async function k(p, s) {
+  const b = await crypto.subtle.importKey('raw', E.encode(p), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt:s, iterations:100000, hash:'SHA-256'}, b, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
 }
 
-async function create() {
-  const name = document.getElementById('in-name').value;
-  const val = document.getElementById('in-val').value;
-  const pass = document.getElementById('in-pass').value;
-  if(!name || !val || !pass) return;
-
-  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveKey(pass, salt);
-  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, ENC.encode(val));
+async function lock() {
+  const n = document.getElementById('n').value, v = document.getElementById('v').value, p = document.getElementById('p').value;
+  if(!n || !v || !p) return;
+  const s = crypto.getRandomValues(new Uint8Array(16)), i = crypto.getRandomValues(new Uint8Array(12));
+  const key = await k(p, s);
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv:i}, key, E.encode(v));
   const out = new Uint8Array(28 + ct.byteLength);
-  out.set(salt,0); out.set(iv,16); out.set(new Uint8Array(ct),28);
+  out.set(s,0); out.set(i,16); out.set(new Uint8Array(ct),28);
+  const url = window.location.origin + window.location.pathname + '#' + btoa(unescape(encodeURIComponent(n))) + '.' + btoa(String.fromCharCode(...out));
   
-  const cipher = btoa(String.fromCharCode(...out)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const label = btoa(unescape(encodeURIComponent(name))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  
-  document.getElementById('output-url').innerText = `${window.location.origin}${window.location.pathname}#${label}.${cipher}`;
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-gen').classList.add('active');
-}
-
-function selectAndCopy(el) {
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-  alert("URL selected! Press CMD+C (or Ctrl+C) to copy, then paste it over this block.");
+  document.getElementById('ui').innerHTML = `<div id="copy-prompt">LINK READY: Click here, then Paste (Cmd+V) over this block</div>`;
+  document.getElementById('copy-prompt').onclick = async () => {
+    try { await navigator.clipboard.writeText(url); } catch(e) { 
+      const t = document.createElement("textarea"); t.value = url; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t);
+    }
+    document.getElementById('copy-prompt').innerText = "COPIED! NOW PASTE!";
+    document.getElementById('copy-prompt').style.background = "#1a4a1a";
+  };
 }
 
 async function unlock() {
-  const pass = document.getElementById('unlock-pass').value;
-  const parts = location.hash.slice(1).split('.');
+  const p = document.getElementById('up').value, h = location.hash.slice(1).split('.');
   try {
-    const d = Uint8Array.from(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
-    const key = await deriveKey(pass, d.slice(0,16));
-    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv:d.slice(16,28) }, key, d.slice(28));
-    document.getElementById('disp-val').value = DEC.decode(pt);
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-unlocked').classList.add('active');
-  } catch(e) { alert("Wrong passphrase"); }
+    const d = Uint8Array.from(atob(h[1]), c => c.charCodeAt(0));
+    const key = await k(p, d.slice(0,16));
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:d.slice(16,28)}, key, d.slice(28));
+    document.getElementById('ui').innerHTML = `<span class="label">${decodeURIComponent(escape(atob(h[0])))}:</span><input value="${D.decode(pt)}" readonly id="res"><button onclick="copyRes()">Copy</button><button onclick="location.reload()" style="background:#444; color:#fff; margin-left:5px;">Lock</button>`;
+  } catch(e) { alert("Wrong Passphrase"); }
 }
 
-function copyResult(btn) {
-  const input = document.getElementById('disp-val');
-  input.select();
-  document.execCommand('copy');
-  btn.innerText = 'OK';
+function copyRes() {
+  const r = document.getElementById('res'); r.select(); document.execCommand('copy');
 }
 
-if(location.hash) {
-  const name = decodeURIComponent(escape(atob(location.hash.slice(1).split('.')[0].replace(/-/g,'+').replace(/_/g,'/'))));
-  document.getElementById('disp-name').innerText = name + ":";
-  document.getElementById('disp-name-final').innerText = name + ":";
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('view-locked').classList.add('active');
+if(location.hash && location.hash.includes('.')) {
+  const name = decodeURIComponent(escape(atob(location.hash.slice(1).split('.')[0])));
+  document.getElementById('ui').innerHTML = `<span class="label">${name}:</span><input type="password" id="up" placeholder="Passphrase"><button onclick="unlock()">Unlock</button>`;
 }
 </script>
 </body>
