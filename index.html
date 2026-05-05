@@ -147,6 +147,53 @@
     }
     .vault-tag { color: var(--accent); font-weight: 700; font-size: 14px; white-space: nowrap; }
 
+    /* Tutorial */
+    .tutorial {
+      width: 100%;
+      margin-bottom: 30px;
+    }
+    .tutorial h2 {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin: 0 0 16px;
+      text-align: center;
+    }
+    .tutorial ol {
+      list-style: none;
+      counter-reset: step;
+      padding: 0;
+      margin: 0;
+    }
+    .tutorial li {
+      counter-increment: step;
+      position: relative;
+      padding: 0 0 14px 36px;
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .tutorial li:last-child { padding-bottom: 0; }
+    .tutorial li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 24px;
+      height: 24px;
+      border-radius: 100px;
+      background: rgba(196, 168, 130, 0.12);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tutorial li strong { color: var(--text-main); font-weight: 600; }
+
     /* Wrong passphrase feedback */
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
@@ -250,6 +297,16 @@ function showGenerator() {
           <input id="pass" type="password" placeholder="Don't lose this key">
         </div>
         <button onclick="generate()">Generate Secure Link</button>
+      </div>
+
+      <div class="card tutorial">
+        <h2>How it works</h2>
+        <ol>
+          <li><strong>Enter</strong> a title, your secret, and a passphrase.</li>
+          <li><strong>Generate</strong> the link — it is encrypted in your browser and copied to your clipboard.</li>
+          <li><strong>Embed</strong> the link in Notion (paste as embed) and share the passphrase separately.</li>
+          <li><strong>Recipients</strong> open the embed and enter the passphrase to reveal the secret.</li>
+        </ol>
       </div>
 
       <div class="divider"></div>
