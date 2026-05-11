@@ -31,7 +31,7 @@ This project is built on the principle that **trust is unnecessary when you have
 ## 🛡️ Security Details
 
 * **AES-256-GCM:** Authenticated encryption. This ensures that if even a single bit of your encrypted data is tampered with, the vault will detect it and refuse to open.
-* **PBKDF2 Key Derivation:** Your passphrase isn't just a "key." We scramble it with a random salt **$310,000$** times using the SHA-256 algorithm. This makes it virtually impossible for a computer to "guess" your password.
+* **PBKDF2 Key Derivation:** Your passphrase is scrambled with a random salt **$310,000$** times using the SHA-256 algorithm. This makes it virtually impossible for a computer to "guess" your password.
 * **Random IV per Encryption:** Every time you click "Generate," we use a new, random Initialization Vector. Even if you encrypt the same word twice, you will get two completely different links.
 * **Zero Network Requests:** All crypto runs via the browser's native API. No libraries, no external dependencies, no trackers.
 
